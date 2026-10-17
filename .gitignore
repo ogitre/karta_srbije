@@ -1,0 +1,4 @@
+# temporary build output
+raw/
+# local editor/agent settings
+.claude/

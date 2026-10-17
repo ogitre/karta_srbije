@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Map of Serbia</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- Elements marked data-i18n have their English text translated at runtime (see i18n.js). -->
+  <aside id="panel">
+    <header class="panel-head">
+      <div>
+        <h1 data-i18n>Serbia</h1>
+        <p class="sub" data-i18n>Interactive geographic map</p>
+      </div>
+      <div class="head-actions">
+        <div class="lang" id="lang" role="group" aria-label="Language">
+          <button data-lang="en" title="English">EN</button>
+          <button data-lang="sr" title="Srpski (latinica)">SR</button>
+          <button data-lang="cyr" title="Српски (ћирилица)">СР</button>
+        </div>
+        <button id="panelToggle" class="icon-btn" data-i18n-title="Hide panel" title="Hide panel" aria-label="Hide panel">‹</button>
+      </div>
+    </header>
+
+    <div class="search">
+      <input id="search" type="search" data-i18n-placeholder="Search a city, peak, park…" placeholder="Search a city, peak, park…" autocomplete="off">
+      <ul id="searchResults"></ul>
+    </div>
+
+    <div class="scroll">
+      <details open>
+        <summary data-i18n>Base map</summary>
+        <div class="radio-grid" id="baseMaps"></div>
+        <label class="row"><input type="checkbox" id="hillshade"> <span data-i18n>Hillshade relief overlay</span></label>
+        <label class="slider"><span data-i18n>Base map opacity</span> <input type="range" id="baseOpacity" min="0" max="1" step="0.05" value="1"></label>
+        <label class="row"><input type="checkbox" id="maskOutside" checked> <span data-i18n>Dim area outside Serbia</span></label>
+      </details>
+
+      <details open>
+        <summary data-i18n>Regions &amp; districts</summary>
+        <label class="row"><input type="checkbox" id="showGeo"> <span data-i18n>Geographic regions (Banat, Šumadija…)</span></label>
+        <label class="row sub-row"><input type="checkbox" id="showOverlays" checked> <span data-i18n>Nišava valley (not a region)</span></label>
+        <label class="row"><input type="checkbox" id="showRegions" checked> <span data-i18n>Statistical regions</span></label>
+        <label class="row"><input type="checkbox" id="showDistricts"> <span data-i18n>Districts (okrugs)</span></label>
+        <label class="row"><input type="checkbox" id="showKosovo" checked> <span data-i18n>Kosovo and Metohija</span></label>
+        <label class="row"><input type="checkbox" id="showOutline" checked> <span data-i18n>National border</span></label>
+        <label class="row"><input type="checkbox" id="showAreaLabels" checked> <span data-i18n>Area labels</span></label>
+        <div class="chips" id="regionChips"></div>
+      </details>
+
+      <details open>
+        <summary data-i18n>Colors</summary>
+        <label class="row"><input type="checkbox" id="fillOn" checked> <span data-i18n>Fill areas with color</span></label>
+        <label class="select"><span data-i18n>Color by</span>
+          <select id="colorBy">
+            <option value="region" data-i18n>Region</option>
+            <option value="district" data-i18n>District</option>
+            <option value="area" data-i18n>Area size (choropleth)</option>
+            <option value="single" data-i18n>Single color</option>
+          </select>
+        </label>
+        <label class="select"><span data-i18n>Palette</span>
+          <select id="palette">
+            <option value="classic" data-i18n>Classic atlas</option>
+            <option value="pastel" data-i18n>Pastel</option>
+            <option value="vivid" data-i18n>Vivid</option>
+            <option value="earth" data-i18n>Earth tones</option>
+            <option value="ocean" data-i18n>Ocean</option>
+            <option value="flag" data-i18n>Flag (red · blue · white)</option>
+          </select>
+        </label>
+        <label class="select"><span data-i18n>Single color</span> <input type="color" id="singleColor" value="#c6363c"></label>
+        <label class="slider"><span data-i18n>Fill opacity</span> <input type="range" id="fillOpacity" min="0" max="1" step="0.05" value="0.35"></label>
+        <label class="select"><span data-i18n>Border color</span> <input type="color" id="borderColor" value="#3b3b3b"></label>
+        <label class="slider"><span data-i18n>Border width</span> <input type="range" id="borderWidth" min="0" max="6" step="0.5" value="1.5"></label>
+      </details>
+
+      <details open>
+        <summary data-i18n>Nature</summary>
+        <label class="row"><input type="checkbox" id="showMountains" checked> <span class="sw tri"></span> <span data-i18n>Mountains &amp; peaks</span></label>
+        <label class="slider"><span data-i18n>Min. elevation</span> <output id="minElevOut">0 m</output><input type="range" id="minElev" min="0" max="2400" step="100" value="0"></label>
+        <label class="row"><input type="checkbox" id="showElev" checked> <span data-i18n>Show elevation labels</span></label>
+        <label class="row"><input type="checkbox" id="peakSystems"> <span data-i18n>Color peaks by mountain system</span></label>
+        <ul class="legend" id="systemLegend"></ul>
+        <label class="row"><input type="checkbox" id="showRivers" checked> <span class="sw line"></span> <span data-i18n>Rivers</span></label>
+        <label class="select"><span data-i18n>River color</span> <input type="color" id="riverColor" value="#2f7fd1"></label>
+        <label class="row"><input type="checkbox" id="showLakes"> <span class="sw dot lake"></span> <span data-i18n>Lakes &amp; reservoirs</span></label>
+        <label class="row"><input type="checkbox" id="showParks"> <span class="sw dot park"></span> <span data-i18n>National parks &amp; reserves</span></label>
+      </details>
+
+      <details open>
+        <summary data-i18n>Places</summary>
+        <label class="row"><input type="checkbox" id="showCities" checked> <span class="sw dot city"></span> <span data-i18n>Cities</span></label>
+        <label class="slider"><span data-i18n>Min. population</span> <output id="minPopOut">0</output><input type="range" id="minPop" min="0" max="300000" step="10000" value="0"></label>
+        <label class="row"><input type="checkbox" id="showSpas"> <span class="sw dot spa"></span> <span data-i18n>Spas (banje)</span></label>
+        <label class="row"><input type="checkbox" id="showHeritage"> <span class="sw dot heritage"></span> <span data-i18n>Monasteries &amp; heritage</span></label>
+        <label class="row"><input type="checkbox" id="showSki"> <span class="sw dot ski"></span> <span data-i18n>Ski resorts</span></label>
+      </details>
+
+      <details>
+        <summary data-i18n>Map tools</summary>
+        <label class="row"><input type="checkbox" id="showGrid"> <span data-i18n>Lat / long grid</span></label>
+        <label class="row"><input type="checkbox" id="showCoords" checked> <span data-i18n>Cursor coordinates</span></label>
+        <label class="row"><input type="checkbox" id="showScale" checked> <span data-i18n>Scale bar</span></label>
+        <label class="row"><input type="checkbox" id="darkUI"> <span data-i18n>Dark interface</span></label>
+        <div class="btns">
+          <button id="resetView" data-i18n>Reset view</button>
+          <button id="allOn" data-i18n>All layers on</button>
+          <button id="allOff" data-i18n>All layers off</button>
+        </div>
+      </details>
+
+      <p class="credits" data-i18n>Boundaries: geoBoundaries (CC BY 4.0). Rivers: Natural Earth. Tiles © their providers. Kosovo's status is disputed; it is shown as a separately toggleable layer.</p>
+    </div>
+  </aside>
+
+  <button id="panelOpen" class="icon-btn floating" data-i18n-title="Show panel" title="Show panel" aria-label="Show panel">☰</button>
+  <div id="stage">
+    <main id="map"></main>
+    <!-- Switch between the map and the text view of the regions -->
+    <div class="view-switch" role="tablist">
+      <button data-view="map" role="tab" data-i18n>Map</button>
+      <button data-view="text" role="tab" data-i18n>Regions</button>
+    </div>
+    <section id="regionText" class="region-text" hidden></section>
+  </div>
+  <div id="info" class="hidden"></div>
+  <div id="coords"></div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <!-- geometry.js is generated by tools/build-geometry.html from districts.js, kosovo.js and municipalities.js -->
+  <script src="data/geometry.js"></script>
+  <script src="data/rivers.js"></script>
+  <script src="data/lakes.js"></script>
+  <script src="data/geo-regions.js"></script>
+  <script src="data/places.js"></script>
+  <script src="data/region-texts.js"></script>
+  <script src="i18n.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Build geometry</title>
+  <style>body { font: 14px system-ui, sans-serif; margin: 24px; } pre { background: #f4f4f4; padding: 12px; }</style>
+</head>
+<body>
+  <h1>Build merged region geometry</h1>
+  <p>Open via the local server (<code>http://localhost:8080/tools/build-geometry.html</code>), then save the file
+     below as <code>data/geometry.js</code>, replacing the old one.</p>
+  <pre id="log"></pre>
+  <a id="download" download="geometry.js" hidden>Download geometry.js</a>
+
+  <script src="https://unpkg.com/@turf/turf@6.5.0/turf.min.js"></script>
+  <script src="../data/districts.js"></script>
+  <script src="../data/kosovo.js"></script>
+  <script src="../data/municipalities.js"></script>
+  <script src="../data/boundary-rivers.js"></script>
+  <script src="../data/geo-regions.js"></script>
+  <script src="../data/places.js"></script>
+  <script src="build-helpers.js"></script>
+  <script src="build-geometry.js"></script>
+</body>
+</html>
