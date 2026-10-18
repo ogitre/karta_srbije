@@ -72,19 +72,21 @@
     tiles(`https://server.arcgisonline.com/ArcGIS/rest/services/${svc}/MapServer/tile/{z}/{y}/{x}`,
       { maxNativeZoom: maxNative, maxZoom: 17, attribution: 'Tiles © Esri' + extra });
 
+  // The chosen base map is drawn only inside Serbia (with KiM); tiles entirely outside are never downloaded.
+  // Outside Serbia there is only a plain relief layer, plus our own country borders and names.
+  const insideSerbia = (layer) => L.TileLayer.BoundaryCanvas.createFromLayer(layer, { boundary: outlineWith });
   const BASEMAPS = {
-    terrain:   { label: 'Terrain',   layer: () => tiles('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', { maxNativeZoom: 17, maxZoom: 17, attribution: '© OpenStreetMap, SRTM | © OpenTopoMap (CC-BY-SA)' }) },
-    physical:  { label: 'Physical',  layer: () => esri('World_Physical_Map', 8, ' — US National Park Service') },
-    relief:    { label: 'Relief',    layer: () => esri('World_Shaded_Relief', 13) },
-    satellite: { label: 'Satellite', layer: () => esri('World_Imagery', 17, ', Maxar, Earthstar Geographics') },
-    topo:      { label: 'Topographic', layer: () => esri('World_Topo_Map', 17) },
-    streets:   { label: 'Streets',   layer: () => tiles('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 17, attribution: '© OpenStreetMap contributors' }) },
-    light:     { label: 'Light',     layer: () => esri('Canvas/World_Light_Gray_Base', 16) },
-    dark:      { label: 'Dark',      layer: () => esri('Canvas/World_Dark_Gray_Base', 16) },
+    terrain:   { label: 'Terrain',   layer: () => insideSerbia(tiles('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', { maxNativeZoom: 17, maxZoom: 17, attribution: '© OpenStreetMap, SRTM | © OpenTopoMap (CC-BY-SA)' })) },
+    physical:  { label: 'Physical',  layer: () => insideSerbia(esri('World_Physical_Map', 8, ' — US National Park Service')) },
+    relief:    { label: 'Relief',    layer: () => insideSerbia(esri('World_Shaded_Relief', 13)) },
+    satellite: { label: 'Satellite', layer: () => insideSerbia(esri('World_Imagery', 17, ', Maxar, Earthstar Geographics')) },
+    topo:      { label: 'Topographic', layer: () => insideSerbia(esri('World_Topo_Map', 17)) },
+    streets:   { label: 'Streets',   layer: () => insideSerbia(tiles('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 17, attribution: '© OpenStreetMap contributors' })) },
+    light:     { label: 'Light',     layer: () => insideSerbia(esri('Canvas/World_Light_Gray_Base', 16)) },
+    dark:      { label: 'Dark',      layer: () => insideSerbia(esri('Canvas/World_Dark_Gray_Base', 16)) },
     none:      { label: 'None',      layer: () => null }
   };
-  const hillshade = esri('Elevation/World_Hillshade', 16);
-  hillshade.setOpacity(0.45);
+  let hillshade = null; // created once the Serbia outline is known (below)
   let baseLayer = null;
 
   /* ------------------------------------------------------------------ *
@@ -114,6 +116,24 @@
 
   const outlineWith = { type: 'Feature', properties: {}, geometry: G.outlineWith };
   const outlineWithout = { type: 'Feature', properties: {}, geometry: G.outlineWithout };
+
+  hillshade = insideSerbia(esri('Elevation/World_Hillshade', 16));
+  hillshade.setOpacity(0.45);
+
+  // Everything except Serbia: the world with Serbia's outline cut out (holes must run opposite to the outer ring)
+  const ringArea = (r) => { let a = 0; for (let i = 0, j = r.length - 1; i < r.length; j = i++) a += (r[j][0] - r[i][0]) * (r[j][1] + r[i][1]); return a / 2; };
+  const ccw = (r) => (ringArea(r) > 0 ? r : r.slice().reverse());
+  const cw = (r) => (ringArea(r) < 0 ? r : r.slice().reverse());
+  const outsideSerbia = { type: 'Feature', properties: {}, geometry: { type: 'Polygon', coordinates: [
+    ccw([[-179, -85], [179, -85], [179, 85], [-179, 85], [-179, -85]]),
+    ...(G.outlineWith.type === 'Polygon' ? [G.outlineWith.coordinates] : G.outlineWith.coordinates).map((p) => cw(p[0]))
+  ] } };
+  // Plain shaded relief (no labels, roads or towns) for the landscape outside Serbia
+  L.TileLayer.BoundaryCanvas.createFromLayer(esri('World_Shaded_Relief', 13), { boundary: outsideSerbia, zIndex: 0 }).addTo(map);
+
+  // Neighbouring countries: borders and names only (drawn by drawCountries() once settings are loaded)
+  const countryLayer = L.featureGroup();
+  const countryLabelLayer = L.layerGroup();
 
   const geoFeatures = window.GEO_REGIONS.filter((g) => {
     if (!G.geo[g.id]) console.warn(`Geographic region "${g.id}" has no geometry — re-run tools/build-geometry.html`);
@@ -518,9 +538,10 @@
     style: (f) => ({ color: val('riverColor'), weight: Math.max(1.5, 5 - (f.properties.scalerank || 5) * 0.45), opacity: 0.9, lineCap: 'round' }),
     onEachFeature: (f, l) => l.bindTooltip(() => tr(f.properties.name_en || f.properties.name || 'River'), { sticky: true })
   });
-  riverLayer.addData(window.RIVERS);
+  // rivers and lakes clipped to Serbia by the build (fallback: the full data files)
+  riverLayer.addData(G.rivers || window.RIVERS);
 
-  const lakePolyLayer = L.geoJSON(window.LAKES, {
+  const lakePolyLayer = L.geoJSON(G.lakes || window.LAKES, {
     style: () => ({ color: '#2f7fd1', weight: 1, fillColor: '#6fb7ea', fillOpacity: 0.8 }),
     onEachFeature: (f, l) => l.bindTooltip(() => tr(f.properties.name || 'Lake'), { sticky: true })
   });
@@ -720,7 +741,7 @@
 
   // Draw order on the shared canvas, bottom to top (re-applied after layers are rebuilt)
   function restack() {
-    [districtLayer, geoLayer, regionLayer, groupLayer, overlayLayer, outlineLayer, gridLayer, lakePolyLayer, riverLayer,
+    [countryLayer, districtLayer, geoLayer, regionLayer, groupLayer, overlayLayer, outlineLayer, gridLayer, lakePolyLayer, riverLayer,
       groups.lakes, groups.parks, groups.spas, groups.heritage, groups.ski, groups.cities]
       .forEach((l) => { if (map.hasLayer(l)) l.bringToFront(); });
   }
@@ -737,8 +758,22 @@
   let saveTimer = 0;
   const saveSoon = () => { clearTimeout(saveTimer); saveTimer = setTimeout(save, 300); };
 
+  // Neighbouring countries: outline + name, in the current language (Serbia itself is drawn by our own layers)
+  const countryStyle = () => ({ color: val('darkUI') ? '#b8bec7' : '#5f6670', weight: 1.3, opacity: 0.9, fill: false });
+  function drawCountries() {
+    countryLayer.clearLayers(); countryLabelLayer.clearLayers();
+    (G.countries || []).forEach((c) => L.geoJSON({ type: 'Feature', properties: {}, geometry: c.g },
+      { interactive: false, style: countryStyle }).addTo(countryLayer));
+    Object.entries(window.COUNTRY_LABELS || {}).forEach(([name, [lng, lat]]) => {
+      L.marker([lat, lng], { pane: 'labels', interactive: false,
+        icon: L.divIcon({ className: 'country-label', html: `<span>${tr(name)}</span>`, iconSize: [0, 0] }) }).addTo(countryLabelLayer);
+    });
+    countryLayer.addTo(map); countryLabelLayer.addTo(map);
+  }
+
   function updateUi() {
     document.documentElement.dataset.theme = val('darkUI') ? 'dark' : 'light';
+    countryLayer.eachLayer((l) => l.setStyle(countryStyle()));
     if (val('showScale')) scale.addTo(map); else scale.remove();
     if (!val('showCoords')) coordsBox.textContent = '';
     $('minElevOut').textContent = fmt(val('minElev')) + ' m';
@@ -918,7 +953,7 @@
     const b = e.target.closest('button[data-lang]');
     if (!b || b.dataset.lang === lang) return;
     lang = b.dataset.lang;
-    applyStaticI18n(); renderAll(); map.closePopup(); save();
+    applyStaticI18n(); drawCountries(); renderAll(); map.closePopup(); save();
     if (view === 'text') renderRegionText();
   });
 
@@ -926,6 +961,7 @@
   load();
   applyStaticI18n();
   applyBase();
+  drawCountries();
   renderAll();
   setView('map');
   lastZoomBucket = `${map.getZoom() >= 7.5}|${map.getZoom() >= 8}|${map.getZoom() >= 9}`;

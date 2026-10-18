@@ -167,3 +167,11 @@ window.LAKE_POINTS = [
   ['Zavoj Lake', 43.230, 22.630, 'Formed by a 1963 landslide.'],
   ['Ada Ciganlija', 44.785, 20.410, 'Belgrade\'s "sea".']
 ];
+
+// Neighbouring countries' name labels [lng, lat] (English names; translated in i18n.js)
+window.COUNTRY_LABELS = {
+  'Hungary': [19.5, 46.95], 'Romania': [23.6, 45.55], 'Bulgaria': [24.3, 42.85], 'North Macedonia': [21.7, 41.6],
+  'Albania': [20.05, 41.2], 'Montenegro': [19.25, 42.8], 'Bosnia and Herzegovina': [17.8, 44.1], 'Croatia': [16.4, 45.6],
+  'Slovenia': [14.8, 46.1], 'Austria': [14.6, 47.55], 'Slovakia': [19.5, 48.65], 'Ukraine': [23.9, 48.3],
+  'Greece': [22.2, 39.8], 'Moldova': [28.4, 47.1], 'Italy': [14.2, 42.3], 'Turkey': [27.2, 41.4]
+};

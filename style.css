@@ -289,6 +289,14 @@ details:not([open]) summary::after { transform: rotate(-90deg); }
 .area-label.region { font-size: 14px; text-transform: uppercase; letter-spacing: 1px; }
 .area-label.district { font-size: 11px; font-weight: 600; }
 .area-label.geo { font-size: 12px; font-style: italic; letter-spacing: .4px; }
+/* neighbouring countries' names */
+.country-label { background: none; border: none; }
+.country-label span {
+  position: absolute; transform: translate(-50%, -50%); white-space: nowrap;
+  font-size: 13px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase;
+  color: #4b525c; text-shadow: 0 0 3px #fff, 0 0 3px #fff, 0 0 6px #fff;
+}
+[data-theme="dark"] .country-label span { color: #d5dae1; text-shadow: 0 0 3px #000, 0 0 3px #000, 0 0 6px #000; }
 .area-label.overlay { font-size: 11px; font-style: italic; color: #8a4b0f; }
 [data-theme="dark"] .area-label.overlay { color: #ffc58a; }
 .area-label.group { font-size: 15px; font-weight: 800; text-transform: uppercase; letter-spacing: 2px; color: #0c4076; }

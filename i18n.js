@@ -25,6 +25,11 @@ window.SR = {
   'Approximate borders, following municipality boundaries.': 'Granice su približne i prate granice opština.',
   'Borders follow rivers, mountains and state borders.': 'Granice prate reke, planine i državne granice.',
   'Part of': 'Pripada',
+  // neighbouring countries
+  'Hungary': 'Mađarska', 'Romania': 'Rumunija', 'Bulgaria': 'Bugarska', 'North Macedonia': 'Severna Makedonija',
+  'Albania': 'Albanija', 'Montenegro': 'Crna Gora', 'Bosnia and Herzegovina': 'Bosna i Hercegovina', 'Croatia': 'Hrvatska',
+  'Slovenia': 'Slovenija', 'Austria': 'Austrija', 'Slovakia': 'Slovačka', 'Ukraine': 'Ukrajina', 'Greece': 'Grčka',
+  'Moldova': 'Moldavija', 'Italy': 'Italija', 'Turkey': 'Turska',
   'Map': 'Mapa',
   'Regions': 'Regije',
   'Geographic regions of Serbia': 'Geografske regije Srbije',
