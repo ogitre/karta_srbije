@@ -74,7 +74,9 @@
 
   // The chosen base map is drawn only inside Serbia (with KiM); tiles entirely outside are never downloaded.
   // Outside Serbia there is only a plain relief layer, plus our own country borders and names.
-  const insideSerbia = (layer) => L.TileLayer.BoundaryCanvas.createFromLayer(layer, { boundary: outlineWith });
+  // (If the clipping plugin failed to load, fall back to plain unclipped layers so the map still works.)
+  const canClip = !!(L.TileLayer && L.TileLayer.BoundaryCanvas);
+  const insideSerbia = (layer) => (canClip ? L.TileLayer.BoundaryCanvas.createFromLayer(layer, { boundary: outlineWith }) : layer);
   const BASEMAPS = {
     terrain:   { label: 'Terrain',   layer: () => insideSerbia(tiles('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', { maxNativeZoom: 17, maxZoom: 17, attribution: '© OpenStreetMap, SRTM | © OpenTopoMap (CC-BY-SA)' })) },
     physical:  { label: 'Physical',  layer: () => insideSerbia(esri('World_Physical_Map', 8, ' — US National Park Service')) },
@@ -128,8 +130,9 @@
     ccw([[-179, -85], [179, -85], [179, 85], [-179, 85], [-179, -85]]),
     ...(G.outlineWith.type === 'Polygon' ? [G.outlineWith.coordinates] : G.outlineWith.coordinates).map((p) => cw(p[0]))
   ] } };
-  // Plain shaded relief (no labels, roads or towns) for the landscape outside Serbia
-  L.TileLayer.BoundaryCanvas.createFromLayer(esri('World_Shaded_Relief', 13), { boundary: outsideSerbia, zIndex: 0 }).addTo(map);
+  // Coloured terrain with hillshade but no labels, roads or towns, for the landscape outside Serbia
+  // (Esri World Terrain Base has real tiles up to zoom 9; beyond that they are scaled up)
+  if (canClip) L.TileLayer.BoundaryCanvas.createFromLayer(esri('World_Terrain_Base', 9), { boundary: outsideSerbia, zIndex: 0 }).addTo(map);
 
   // Neighbouring countries: borders and names only (drawn by drawCountries() once settings are loaded)
   const countryLayer = L.featureGroup();
@@ -414,7 +417,7 @@
     if (val('maskOutside')) {
       const world = [[-89, -179], [-89, 179], [89, 179], [89, -179]];
       L.polygon([world, ...outerRings(outline)], { pane: 'mask', interactive: false, stroke: false,
-        fillColor: maskColor(), fillOpacity: 0.55 }).addTo(maskLayer);
+        fillColor: maskColor(), fillOpacity: 0.3 }).addTo(maskLayer);
     }
     toggle(outlineLayer, true); toggle(maskLayer, true);
     renderAreaLabels();

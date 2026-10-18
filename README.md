@@ -36,6 +36,10 @@ Samo za izradu oblika (stranica ih ne učitava): `tools/`, `data/districts.js`, 
 2. Na github.com: repozitorijum → *Settings → Pages* → Branch `main`, folder `/ (root)` → *Save*.
 3. Za izmene: u GitHub Desktop *Commit* pa *Push* — sajt se osveži za oko minut.
 
+Posle izmena promeni broj verzije `?v=...` kod fajlova u `index.html` (npr. na današnji datum).
+GitHub Pages pamti fajlove u pregledaču 10 minuta, pa bez novog broja pregledač može da pomeša
+stare i nove fajlove i stranica ostane prazna.
+
 ## Izvori podataka
 
 Granice: geoBoundaries (CC BY 4.0) · Reke: Natural Earth i © OpenStreetMap saradnici (ODbL) ·
