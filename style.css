@@ -289,6 +289,31 @@ details:not([open]) summary::after { transform: rotate(-90deg); }
 .area-label.region { font-size: 14px; text-transform: uppercase; letter-spacing: 1px; }
 .area-label.district { font-size: 11px; font-weight: 600; }
 .area-label.geo { font-size: 12px; font-style: italic; letter-spacing: .4px; }
+/* border landmarks: rivers, mountains, basins and places named in the region borders */
+.landmark-label { background: none; border: none; }
+.landmark-label span {
+  position: absolute; white-space: nowrap; transform: translate(-50%, -50%);
+  font-size: 11px; font-weight: 600; text-shadow: 0 0 3px #fff, 0 0 3px #fff, 0 0 5px #fff;
+}
+.landmark-label.river span { color: #1b5fa6; font-style: italic; letter-spacing: .5px; }
+.landmark-label.basin span { color: #6b4a1f; font-style: italic; font-weight: 500; }
+.landmark-label.area span { color: #6b4a1f; font-style: italic; }
+.landmark-label.mountain span, .landmark-label.place span { color: #3d2a12; transform: translate(8px, -50%); }
+.landmark-label .lm-peak {
+  position: absolute; transform: translate(-50%, -70%); width: 0; height: 0;
+  border-left: 5px solid transparent; border-right: 5px solid transparent; border-bottom: 9px solid #6b4a1f;
+  filter: drop-shadow(0 0 1px #fff);
+}
+.landmark-label .lm-place {
+  position: absolute; transform: translate(-50%, -50%); width: 7px; height: 7px; border-radius: 50%;
+  background: #222; box-shadow: 0 0 0 2px #fff;
+}
+[data-theme="dark"] .landmark-label span { text-shadow: 0 0 3px #000, 0 0 3px #000, 0 0 5px #000; }
+[data-theme="dark"] .landmark-label.river span { color: #8cc4ff; }
+[data-theme="dark"] .landmark-label.basin span, [data-theme="dark"] .landmark-label.area span { color: #f0c68a; }
+[data-theme="dark"] .landmark-label.mountain span, [data-theme="dark"] .landmark-label.place span { color: #f3e3c8; }
+[data-theme="dark"] .landmark-label .lm-peak { border-bottom-color: #e0b070; filter: drop-shadow(0 0 1px #000); }
+
 /* neighbouring countries' names */
 .country-label { background: none; border: none; }
 .country-label span {

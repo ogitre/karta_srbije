@@ -175,3 +175,30 @@ window.COUNTRY_LABELS = {
   'Slovenia': [14.8, 46.1], 'Austria': [14.6, 47.55], 'Slovakia': [19.5, 48.65], 'Ukraine': [23.9, 48.3],
   'Greece': [22.2, 39.8], 'Moldova': [28.4, 47.1], 'Italy': [14.2, 42.3], 'Turkey': [27.2, 41.4]
 };
+
+// Mountains, hills and places named in the region borders (shown with "Border landmarks").
+// [English, Serbian], kind ('mountain' | 'area' | 'place'), [lng, lat] (mostly from Serbian Wikipedia).
+window.LANDMARKS = [
+  [['Juhor', 'Juhor'], 'mountain', [21.264, 43.812]],
+  [['Crni vrh', 'Crni vrh'], 'mountain', [21.064, 44.003]],
+  [['Azanja hills', 'Azanjska brda'], 'mountain', [20.88, 44.433]],
+  [['Tara', 'Tara'], 'mountain', [19.466, 43.848]],
+  [['Rogozna', 'Rogozna'], 'mountain', [20.58, 43.014]],
+  [['Mokra gora', 'Mokra gora'], 'mountain', [20.364, 42.832]],
+  [['Resava hills', 'Resavska brda'], 'mountain', [21.231, 44.135]],
+  [['Bukovik', 'Bukovik'], 'mountain', [21.636, 43.692]],
+  [['Seličevica', 'Seličevica'], 'mountain', [21.970, 43.236]],
+  [['Babička gora', 'Babička gora'], 'mountain', [22.061, 43.127]],
+  [['Kruševica', 'Kruševica'], 'mountain', [22.104, 43.022]],
+  [['Ruj', 'Ruj'], 'mountain', [22.533, 42.850]],
+  [['Goljak', 'Goljak'], 'mountain', [21.689, 42.692]],
+  [['Majdan', 'Majdan'], 'mountain', [21.457, 42.927]],
+  [['Radan', 'Radan'], 'mountain', [21.497, 43.003]],
+  [['Skopska Crna Gora', 'Skopska Crna Gora'], 'mountain', [21.446, 42.192]],
+  [['Kopaonik', 'Kopaonik'], 'mountain', [20.823, 43.269]],
+  [['Stolovi', 'Stolovi'], 'mountain', [20.611, 43.609]],
+  [['Goč', 'Goč'], 'mountain', [20.846, 43.536]],
+  [['Željin', 'Željin'], 'mountain', [20.81, 43.48]],
+  [['Kruševac basin', 'Kruševačka kotlina'], 'area', [21.30, 43.60]],
+  [['Kovin', 'Kovin'], 'place', [20.977, 44.742]]
+];

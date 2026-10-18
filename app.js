@@ -219,7 +219,7 @@
     basemap: 'terrain', lang: 'cyr', hidden: [], hiddenGeo: [],
     inputs: {
       hillshade: true, baseOpacity: '1', maskOutside: true,
-      showGeo: true, showOverlays: true, showRegions: false, showDistricts: false, showKosovo: true,
+      showGeo: true, showOverlays: true, showLandmarks: true, showRegions: false, showDistricts: false, showKosovo: true,
       showOutline: false, showAreaLabels: true,
       fillOn: true, colorBy: 'region', palette: 'classic', singleColor: '#c6363c', fillOpacity: '0.35',
       borderColor: '#3b3b3b', borderWidth: '0',
@@ -705,7 +705,7 @@
    * ------------------------------------------------------------------ */
   const TASKS_FOR = {
     baseOpacity: ['base'], hillshade: ['base'],
-    showGeo: ['areas'], showOverlays: ['areas'], showRegions: ['areas'], showDistricts: ['areas'], showOutline: ['areas'], maskOutside: ['areas'],
+    showGeo: ['areas'], showOverlays: ['areas'], showLandmarks: ['landmarks', 'rivers'], showRegions: ['areas'], showDistricts: ['areas'], showOutline: ['areas'], maskOutside: ['areas'],
     showKosovo: ['areas', 'points'], showAreaLabels: ['labels'],
     fillOn: ['style'], colorBy: ['style', 'ui'], palette: ['style'], singleColor: ['style'],
     fillOpacity: ['style'], borderColor: ['style'], borderWidth: ['style'],
@@ -730,9 +730,11 @@
     }
     if (has('rivers')) {
       riverLayer.setStyle({ color: val('riverColor') });
+      landmarkLayer.setStyle(landmarkRiverStyle());
       toggle(riverLayer, val('showRivers'));
       toggle(lakePolyLayer, val('showLakes'));
     }
+    if (has('landmarks')) renderLandmarks();
     if (has('points')) renderPoints();
     else {
       const only = new Set([...tasks].filter((t) => t.startsWith('p:')).map((t) => t.slice(2)));
@@ -744,7 +746,7 @@
 
   // Draw order on the shared canvas, bottom to top (re-applied after layers are rebuilt)
   function restack() {
-    [countryLayer, districtLayer, geoLayer, regionLayer, groupLayer, overlayLayer, outlineLayer, gridLayer, lakePolyLayer, riverLayer,
+    [countryLayer, districtLayer, geoLayer, regionLayer, groupLayer, overlayLayer, outlineLayer, gridLayer, lakePolyLayer, riverLayer, landmarkLayer,
       groups.lakes, groups.parks, groups.spas, groups.heritage, groups.ski, groups.cities]
       .forEach((l) => { if (map.hasLayer(l)) l.bringToFront(); });
   }
@@ -760,6 +762,46 @@
 
   let saveTimer = 0;
   const saveSoon = () => { clearTimeout(saveTimer); saveTimer = setTimeout(save, 300); };
+
+  /* ------------------------------------------------------------------ *
+   * Border landmarks: rivers, mountains, basins and places named in the region borders
+   * (rivers and basin/gorge label points from the build, mountains from data/places.js)
+   * ------------------------------------------------------------------ */
+  // English names of the rivers (the data uses the Serbian ones)
+  const RIVER_EN = { 'Dunav': 'Danube', 'Zapadna Morava': 'West Morava', 'Južna Morava': 'South Morava', 'Velika Morava': 'Great Morava' };
+  const riverName = (n) => (lang === 'en' ? (RIVER_EN[n] || n) : script(n));
+  // Natural Earth rivers that the detailed landmark rivers replace while landmarks are shown
+  const NE_COVERED = ['Danube', 'Sava', 'Tisa', 'Morava', 'Nišava', 'Sitnica', 'Golijska Moravica', 'Drina'];
+  const landmarkLayer = L.featureGroup();
+  const landmarkLabels = L.layerGroup();
+  const landmarkRiverStyle = () => ({ color: val('riverColor'), weight: 2.4, opacity: 0.95, lineCap: 'round' });
+  function renderLandmarks() {
+    landmarkLayer.clearLayers(); landmarkLabels.clearLayers();
+    const on = val('showLandmarks');
+    if (on) {
+      const z = map.getZoom();
+      (G.landmarkRivers || []).forEach((r) => {
+        L.geoJSON({ type: 'Feature', properties: {}, geometry: r.g }, { style: landmarkRiverStyle,
+          onEachFeature: (f, l) => l.bindTooltip(() => riverName(r.n), { sticky: true }) }).addTo(landmarkLayer);
+        if (z >= 7.5) L.marker([r.c[1], r.c[0]], { pane: 'labels', interactive: false,
+          icon: L.divIcon({ className: 'landmark-label river', html: `<span>${riverName(r.n)}</span>`, iconSize: [0, 0] }) }).addTo(landmarkLabels);
+      });
+      (window.LANDMARKS || []).forEach(([name, kind, [lng, lat]]) => {
+        const icon = kind === 'mountain' ? '<i class="lm-peak"></i>' : kind === 'place' ? '<i class="lm-place"></i>' : '';
+        L.marker([lat, lng], { pane: 'labels', interactive: false,
+          icon: L.divIcon({ className: `landmark-label ${kind}`, html: `${icon}<span>${textPair(name)}</span>`, iconSize: [0, 0] }) }).addTo(landmarkLabels);
+      });
+      if (z >= 7.5) (G.landmarkPoints || []).forEach((p) => {
+        L.marker([p.c[1], p.c[0]], { pane: 'labels', interactive: false,
+          icon: L.divIcon({ className: 'landmark-label basin', html: `<span>${textPair(p.n)}</span>`, iconSize: [0, 0] }) }).addTo(landmarkLabels);
+      });
+    }
+    toggle(landmarkLayer, on); toggle(landmarkLabels, on);
+    // avoid drawing the same river twice: hide the coarse copies of the landmark rivers
+    riverLayer.clearLayers();
+    riverLayer.addData({ type: 'FeatureCollection', features: (G.rivers || window.RIVERS).features
+      .filter((f) => !on || !NE_COVERED.includes(f.properties.name)) });
+  }
 
   // Neighbouring countries: outline + name, in the current language (Serbia itself is drawn by our own layers)
   const countryStyle = () => ({ color: val('darkUI') ? '#b8bec7' : '#5f6670', weight: 1.3, opacity: 0.9, fill: false });
@@ -805,7 +847,7 @@
   map.on('zoomend', () => {
     const z = map.getZoom();
     const bucket = `${z >= 7.5}|${z >= 8}|${z >= 9}`;
-    if (bucket !== lastZoomBucket) { lastZoomBucket = bucket; schedule(['labels', 'p:cities', 'grid']); }
+    if (bucket !== lastZoomBucket) { lastZoomBucket = bucket; schedule(['labels', 'p:cities', 'grid', 'landmarks']); }
   });
 
   $('resetView').onclick = () => map.flyTo(HOME.center, HOME.zoom);

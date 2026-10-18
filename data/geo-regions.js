@@ -163,6 +163,7 @@ window.GEO_BOUNDARIES = {
 // each section spreads over land at most `rise` metres above the river and at most `dmax` km away.
 // Gorges/narrows get a small dmax, basins a large one. Sections follow the river from `from`;
 // each ends `until` the river point nearest the given coordinate (the last one runs to the end).
+// name: [English, Serbian] label shown on the map with the border landmarks (sections without a name get no label).
 // Elevation: AWS Terrain Tiles (Mapzen terrarium), zoom 10 (~110 m per pixel).
 window.GEO_VALLEYS = [
   { id: 'juznoPomoravlje', river: 'Južna Morava', from: [21.77, 42.446], to: [21.404, 43.70],
@@ -170,22 +171,22 @@ window.GEO_VALLEYS = [
     extraSeeds: [{ river: 'Preševska Moravica', unit: 'bujanovacka', within: [21.77, 42.446, 10] },
                  { river: 'Binačka Morava', unit: 'bujanovacka', within: [21.77, 42.446, 10] }],
     units: [
-      { id: 'bujanovacka', until: [21.85, 42.52], dmax: 9, rise: 120 },
-      { id: 'vranjska', until: [22.064, 42.707], dmax: 10, rise: 150 },
-      { id: 'grdelicka', until: [22.068, 42.896], dmax: 2.5, rise: 300 },
+      { id: 'bujanovacka', name: ['Bujanovac basin', 'Bujanovačka kotlina'], until: [21.85, 42.52], dmax: 9, rise: 120 },
+      { id: 'vranjska', name: ['Vranje basin', 'Vranjska kotlina'], until: [22.064, 42.707], dmax: 10, rise: 150 },
+      { id: 'grdelicka', name: ['Grdelica gorge', 'Grdelička klisura'], until: [22.068, 42.896], dmax: 2.5, rise: 300 },
       { id: 'leskovacka', until: [21.90, 43.07], dmax: 16, rise: 140 },
-      { id: 'pecenjevacko', until: [21.87, 43.12], dmax: 4, rise: 100 },
-      { id: 'niska', until: [21.80, 43.43], dmax: 14, rise: 140 },
-      { id: 'mezgrajsko', until: [21.75, 43.48], dmax: 4, rise: 100 },
-      { id: 'aleksinacka', until: [21.53, 43.627], dmax: 10, rise: 130 },
+      { id: 'pecenjevacko', name: ['Pečenjevce narrows', 'Pečenjevačko suženje'], until: [21.87, 43.12], dmax: 4, rise: 100 },
+      { id: 'niska', name: ['Niš basin', 'Niška kotlina'], until: [21.80, 43.43], dmax: 14, rise: 140 },
+      { id: 'mezgrajsko', name: ['Mezgraja narrows', 'Mezgrajsko suženje'], until: [21.75, 43.48], dmax: 4, rise: 100 },
+      { id: 'aleksinacka', name: ['Aleksinac basin', 'Aleksinačka kotlina'], until: [21.53, 43.627], dmax: 10, rise: 130 },
       // the notebook lists the Stalać gorge in both valleys: it also becomes part of the Great Morava valley
-      { id: 'stalacka', dmax: 2.5, rise: 200, alsoIn: 'velikoPomoravlje' }
+      { id: 'stalacka', name: ['Stalać gorge', 'Stalaćka klisura'], dmax: 2.5, rise: 200, alsoIn: 'velikoPomoravlje' }
     ] },
   { id: 'velikoPomoravlje', river: 'Velika Morava', from: [21.404, 43.70], to: [21.039, 44.718],
     units: [
-      { id: 'gornjovm', until: [21.19, 44.06], dmax: 14, rise: 110 },
-      { id: 'bagrdanska', until: [21.11, 44.16], dmax: 3, rise: 200 },
-      { id: 'donjovm', dmax: 13, rise: 75 }
+      { id: 'gornjovm', name: ['Upper Great Morava basin', 'Gornjovelikomoravska kotlina'], until: [21.19, 44.06], dmax: 14, rise: 110 },
+      { id: 'bagrdanska', name: ['Bagrdan gorge', 'Bagrdanska klisura'], until: [21.11, 44.16], dmax: 3, rise: 200 },
+      { id: 'donjovm', name: ['Lower Great Morava basin', 'Donjovelikomoravska kotlina'], dmax: 13, rise: 75 }
     ] }
 ];
 
@@ -193,10 +194,10 @@ window.GEO_VALLEYS = [
 window.GEO_OVERLAY_VALLEYS = [
   { id: 'nisava', river: 'Nišava', from: [22.99, 42.99], to: [21.769, 43.37],
     units: [
-      { id: 'dimitrovgradska', until: [22.68, 43.06], dmax: 5, rise: 100 },
-      { id: 'pirotska', until: [22.42, 43.21], dmax: 8, rise: 120 },
-      { id: 'belopalanacka', until: [22.20, 43.30], dmax: 7, rise: 120 },
-      { id: 'sicevacka', until: [22.07, 43.33], dmax: 2, rise: 250 },
+      { id: 'dimitrovgradska', name: ['Dimitrovgrad basin', 'Dimitrovgradska kotlina'], until: [22.68, 43.06], dmax: 5, rise: 100 },
+      { id: 'pirotska', name: ['Pirot basin', 'Pirotska kotlina'], until: [22.42, 43.21], dmax: 8, rise: 120 },
+      { id: 'belopalanacka', name: ['Bela Palanka basin', 'Belopalanačka kotlina'], until: [22.20, 43.30], dmax: 7, rise: 120 },
+      { id: 'sicevacka', name: ['Sićevo gorge', 'Sićevačka klisura'], until: [22.07, 43.33], dmax: 2, rise: 250 },
       { id: 'niskaNisava', dmax: 10, rise: 120 }
     ] }
 ];

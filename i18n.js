@@ -39,6 +39,7 @@ window.SR = {
   'Includes': 'Obuhvata',
   'Show on map': 'Prikaži na mapi',
   'Nišava valley (not a region)': 'Nišavska dolina (nije regija)',
+  'Border landmarks (rivers, mountains, basins)': 'Orijentiri granica (reke, planine, kotline)',
   'Not a region': 'Nije regija',
   'Shape follows the valley floor and its slopes (from elevation data).': 'Oblik prati dno doline i njene padine (prema podacima o nadmorskoj visini).',
   'Districts (okrugs)': 'Okruzi',

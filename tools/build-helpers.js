@@ -259,7 +259,7 @@ window.BuildHelpers = (() => {
           path.forEach((p, i) => { if (i >= start) { const d = turf.distance(p, u.until); if (d < bd) { bd = d; end = i; } } });
           if (bd > 3) log(`  note: ${u.id}: river passes ${bd.toFixed(1)} km from its "until" point`);
         }
-        units.push({ id: u.id, region: v.id, alsoIn: u.alsoIn, dmax: u.dmax * 1000, rise: u.rise, seeds: densify(path.slice(start, end + 1)) });
+        units.push({ id: u.id, name: u.name, region: v.id, alsoIn: u.alsoIn, dmax: u.dmax * 1000, rise: u.rise, seeds: densify(path.slice(start, end + 1)) });
         start = end;
       });
       (v.extraSeeds || []).forEach((x) => {
@@ -400,6 +400,9 @@ window.BuildHelpers = (() => {
     });
     // shared sections travel alongside (non-enumerable, so callers iterating regions don't see them)
     Object.defineProperty(result, 'shared', { value: shared, enumerable: false });
+    // label points of named sections (the middle of their stretch of river)
+    Object.defineProperty(result, 'points', { enumerable: false,
+      value: units.filter((u) => u.name && u.seeds.length).map((u) => ({ name: u.name, at: u.seeds[Math.floor(u.seeds.length / 2)] })) });
     return result;
   }
 
