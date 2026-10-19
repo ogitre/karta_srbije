@@ -71,6 +71,20 @@ window.SR = {
   'Cities': 'Gradovi',
   'Min. population': 'Min. broj stanovnika',
   'Spas (banje)': 'Banje',
+  'Mountain names': 'Nazivi planina',
+  'River names': 'Nazivi reka',
+  'Lake names': 'Nazivi jezera',
+  'Basins (kotline)': 'Kotline',
+  'Caves (pećine)': 'Pećine',
+  'Cave': 'Pećina',
+  'Show-cave (open to visitors)': 'Turistička pećina (otvorena za posetioce)',
+  'Basin': 'Kotlina',
+  'Mountain': 'Planina',
+  'Highest point nearby': 'Najviša tačka u blizini',
+  'Length in Serbia': 'Dužina u Srbiji',
+  'Town': 'Grad',
+  '(approx.)': '(približno)',
+  'More appear as you zoom in.': 'Još se pojavljuje pri uvećanju.',
   'Monasteries & heritage': 'Manastiri i baština',
   'Ski resorts': 'Skijališta',
   'Map tools': 'Alati karte',
@@ -82,8 +96,8 @@ window.SR = {
   'All layers on': 'Uključi sve slojeve',
   'All layers off': 'Isključi sve slojeve',
   'Click to show / hide · double-click to zoom': 'Klik za prikaz / skrivanje · dvoklik za uvećanje',
-  "Boundaries: geoBoundaries (CC BY 4.0). Rivers: Natural Earth. Tiles © their providers. Kosovo's status is disputed; it is shown as a separately toggleable layer.":
-    'Granice: {geoBoundaries} ({CC BY} 4.0). Reke: {Natural Earth}. Pločice © njihovi pružaoci. Status Kosova je sporan; prikazano je kao zaseban sloj koji se može uključiti ili isključiti.',
+  "Boundaries: geoBoundaries (CC BY 4.0). Rivers, lakes, peaks, caves and towns: © OpenStreetMap contributors (ODbL). Tiles © their providers. Kosovo's status is disputed; it is shown as a separately toggleable layer.":
+    'Granice: {geoBoundaries} ({CC BY} 4.0). Reke, jezera, vrhovi, pećine i gradovi: © saradnici {OpenStreetMap} ({ODbL}). Pločice © njihovi pružaoci. Status Kosova je sporan; prikazano je kao zaseban sloj koji se može uključiti ili isključiti.',
 
   // ---- info box / popups ----
   'English': 'Engleski',

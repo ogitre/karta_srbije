@@ -194,7 +194,18 @@
   const spas = P(window.SPAS, ([name, lat, lng]) => ({ name, lat, lng, type: 'spa' }));
   const heritage = P(window.HERITAGE, ([name, lat, lng, kind, note]) => ({ name, lat, lng, kind, note, type: 'heritage' }));
   const ski = P(window.SKI, ([name, lat, lng]) => ({ name, lat, lng, type: 'ski' }));
-  const lakePoints = P(window.LAKE_POINTS, ([name, lat, lng, note]) => ({ name, lat, lng, note, type: 'lake' }));
+  // Rivers, lakes, mountain names, peaks, basins, caves and towns from OpenStreetMap (data/features.js)
+  const F = window.FEATURES || null;
+  const lakePoints = F ? [] : P(window.LAKE_POINTS, ([name, lat, lng, note]) => ({ name, lat, lng, note, type: 'lake' }));
+  const at = (c) => ({ lat: c[1], lng: c[0] });
+  mountains.forEach((m) => { m.iso = Infinity; });
+  if (F) {
+    // OSM peaks appear by isolation (distance to the nearest higher peak) as you zoom in
+    F.peaks.forEach((p) => mountains.push({ name: p.n, ...at(p.c), elev: p.e, iso: p.i, osm: true, type: 'mountain' }));
+    F.towns.forEach((t) => cities.push({ name: t.n, ...at(t.c), pop: t.p, osm: true, type: 'city' }));
+    [...mountains, ...cities].forEach((o) => { if (o.osm) o.region = regionOf(o.lat, o.lng); });
+  }
+  const caves = F ? F.caves.map((c) => ({ name: c.n, ...at(c.c), famous: !!c.f, type: 'cave', region: regionOf(c.c[1], c.c[0]) })) : [];
 
   /* ------------------------------------------------------------------ *
    * State (persisted in localStorage)
@@ -223,8 +234,9 @@
       showOutline: false, showAreaLabels: true,
       fillOn: true, colorBy: 'region', palette: 'classic', singleColor: '#c6363c', fillOpacity: '0.35',
       borderColor: '#3b3b3b', borderWidth: '0',
-      showMountains: true, minElev: '500', showElev: true, peakSystems: false,
-      showRivers: true, riverColor: '#2f7fd1', showLakes: true, showParks: true,
+      showMountains: true, minElev: '500', showElev: true, peakSystems: false, showRanges: true,
+      showRivers: true, showRiverNames: true, riverColor: '#2f7fd1', showLakes: true, showLakeNames: true,
+      showBasins: true, showCaves: true, showParks: true,
       showCities: true, minPop: '0', showSpas: true, showHeritage: false, showSki: false,
       showGrid: true, showCoords: true, showScale: true, darkUI: true
     }
@@ -537,38 +549,106 @@
   /* ------------------------------------------------------------------ *
    * Water
    * ------------------------------------------------------------------ */
-  const riverLayer = L.geoJSON(null, {
-    style: (f) => ({ color: val('riverColor'), weight: Math.max(1.5, 5 - (f.properties.scalerank || 5) * 0.45), opacity: 0.9, lineCap: 'round' }),
-    onEachFeature: (f, l) => l.bindTooltip(() => tr(f.properties.name_en || f.properties.name || 'River'), { sticky: true })
-  });
-  // rivers and lakes clipped to Serbia by the build (fallback: the full data files)
-  riverLayer.addData(G.rivers || window.RIVERS);
+  // Zoom steps for the detail layers: 0 (< 7.5), 1 (< 8.5), 2 (< 9.5), 3 (< 10.5), 4 (< 11.5), 5
+  const zb = () => { const z = map.getZoom(); return z < 7.5 ? 0 : z < 8.5 ? 1 : z < 9.5 ? 2 : z < 10.5 ? 3 : z < 11.5 ? 4 : 5; };
+  // Shortest river (km) drawn / named, smallest lake (km²) named, lowest mountain named, least isolated peak (km) — per zoom step
+  const RIVER_MIN = [40, 15, 5, 0, 0, 0], RIVER_LABEL_MIN = [150, 50, 20, 8, 3, 0];
+  const LAKE_LABEL_MIN = [5, 1.5, 0.4, 0.15, 0, 0], RANGE_MIN = [1800, 1500, 1200, 600, 0, 0], PEAK_ISO = [25, 15, 8, 4, 1.5, 0];
+  // the best-known basins are named at every zoom, the others from zoom 7.5
+  const MAJOR_BASINS = ['Kosovska kotlina', 'Metohijska kotlina', 'Niška kotlina', 'Leskovačka kotlina', 'Vranjska kotlina',
+    'Kruševačka kotlina', 'Čačansko-kraljevačka kotlina', 'Požeška kotlina', 'Paraćinsko-jagodinska kotlina', 'Pirotska kotlina',
+    'Zaječarska kotlina', 'Valjevska kotlina', 'Sjenička kotlina'];
+  const riverWeight = (l) => (l >= 300 ? 2.6 : l >= 100 ? 2 : l >= 40 ? 1.5 : l >= 15 ? 1.1 : 0.8);
+  const ll = (c) => c.map(([x, y]) => [y, x]);
+  const nameIn = (n) => (lang === 'en' ? n : script(n)); // OSM names are Serbian Latin
 
-  const lakePolyLayer = L.geoJSON(G.lakes || window.LAKES, {
-    style: () => ({ color: '#2f7fd1', weight: 1, fillColor: '#6fb7ea', fillOpacity: 0.8 }),
-    onEachFeature: (f, l) => l.bindTooltip(() => tr(f.properties.name || 'Lake'), { sticky: true })
+  const riverLayer = L.featureGroup();
+  const riverLines = (F ? F.rivers : []).map((r) => ({ r, line: L.polyline(r.g.map(ll), {
+    color: '#2f7fd1', weight: riverWeight(r.l), opacity: 0.9, lineCap: 'round'
+  }).bindTooltip(() => `${riverName(r.n)} · ${fmt(r.l)} km`, { sticky: true }) }));
+
+  const lakePolyLayer = L.featureGroup();
+  // the hand-written lake notes (data/places.js) go to the nearest lake outline
+  const lakeNote = (l) => {
+    const p = (window.LAKE_POINTS || []).find(([, lat, lng]) => Math.hypot(lat - l.c[1], (lng - l.c[0]) * 0.72) < 0.08);
+    return p ? p[3] : null;
+  };
+  (F ? F.lakes : []).forEach((l) => {
+    L.polygon(l.g.map(ll), { color: '#2f7fd1', weight: 1, fillColor: '#6fb7ea', fillOpacity: 0.85 })
+      .bindTooltip(() => nameIn(l.n), { sticky: true })
+      .bindPopup(() => popup(nameIn(l.n), tr('Lake / reservoir'), [`${tr('Area')}: <b>${String(l.a).replace('.', lang === 'en' ? '.' : ',')} km²</b>`, tr(lakeNote(l))]))
+      .addTo(lakePolyLayer);
   });
+  // Name labels of rivers, lakes, mountains and basins (redrawn on zoom steps)
+  const riverLabels = L.layerGroup(), lakeLabels = L.layerGroup(), rangeLabels = L.layerGroup(), basinLabels = L.layerGroup();
+  const textLabel = (c, cls, text) => L.marker([c[1], c[0]], { pane: 'labels', interactive: false,
+    icon: L.divIcon({ className: 'feature-label ' + cls, html: `<span>${text}</span>`, iconSize: [0, 0] }) });
+
+  function renderFeatures() {
+    const z = zb();
+    const vis = (c) => !viewBounds || viewBounds.contains([c[1], c[0]]);
+    const landmarksShown = val('showLandmarks') && map.getZoom() >= 7.5;
+    const landmarkRivers = new Set(landmarksShown ? (G.landmarkRivers || []).map((r) => r.n) : []);
+    // rivers: longer ones first, shorter ones as you zoom in
+    const riversOn = val('showRivers'), color = val('riverColor');
+    riverLines.forEach(({ r, line }) => {
+      const show = riversOn && r.l >= RIVER_MIN[z];
+      if (show) { line.setStyle({ color }); if (!riverLayer.hasLayer(line)) riverLayer.addLayer(line); }
+      else if (riverLayer.hasLayer(line)) riverLayer.removeLayer(line);
+    });
+    toggle(riverLayer, riversOn);
+    riverLabels.clearLayers();
+    if (riversOn && val('showRiverNames')) (F ? F.rivers : []).forEach((r) => {
+      if (r.l >= RIVER_LABEL_MIN[z] && !landmarkRivers.has(r.n) && vis(r.c)) textLabel(r.c, 'river', riverName(r.n)).addTo(riverLabels);
+    });
+    toggle(riverLabels, riversOn && val('showRiverNames'));
+
+    toggle(lakePolyLayer, val('showLakes'));
+    lakeLabels.clearLayers();
+    if (val('showLakes') && val('showLakeNames')) (F ? F.lakes : []).forEach((l) => {
+      if (l.a >= LAKE_LABEL_MIN[z] && vis(l.c)) textLabel(l.c, 'lake', nameIn(l.n)).addTo(lakeLabels);
+    });
+    toggle(lakeLabels, val('showLakes') && val('showLakeNames'));
+
+    // mountain names, skipping those the border landmarks already name
+    const lm = val('showLandmarks') ? (window.LANDMARKS || []) : [];
+    rangeLabels.clearLayers();
+    if (val('showRanges')) (F ? F.ranges : []).forEach((r) => {
+      if (r.h < RANGE_MIN[z] || !vis(r.c)) return;
+      if (lm.some(([n, , [x, y]]) => n[1] === r.n && Math.abs(x - r.c[0]) < 0.3 && Math.abs(y - r.c[1]) < 0.3)) return;
+      textLabel(r.c, 'range', nameIn(r.n)).addTo(rangeLabels);
+    });
+    toggle(rangeLabels, val('showRanges'));
+
+    const lmBasins = new Set([...(landmarksShown ? (G.landmarkPoints || []).map((p) => p.n[1]) : []),
+      ...lm.filter(([, kind]) => kind === 'area').map(([n]) => n[1])]);
+    basinLabels.clearLayers();
+    if (val('showBasins')) (F ? F.basins : []).forEach((b) => {
+      if (!lmBasins.has(b.n) && (z >= 1 || MAJOR_BASINS.includes(b.n)) && vis(b.c)) textLabel(b.c, 'basin', nameIn(b.n)).addTo(basinLabels);
+    });
+    toggle(basinLabels, val('showBasins'));
+  }
 
   /* ------------------------------------------------------------------ *
    * Point layers
    * ------------------------------------------------------------------ */
   const groups = {
     mountains: L.featureGroup(), cities: L.featureGroup(), parks: L.featureGroup(), spas: L.featureGroup(),
-    heritage: L.featureGroup(), ski: L.featureGroup(), lakes: L.featureGroup()
+    heritage: L.featureGroup(), ski: L.featureGroup(), lakes: L.featureGroup(), caves: L.featureGroup()
   };
   const markerIndex = new Map();
   const visible = (o) => !o.region || (!hiddenRegions.has(o.region) && (o.region !== 'kosovo' || val('showKosovo')));
   const popup = (title, tag, lines = []) =>
     `<h4>${title}</h4><span class="tag">${tag}</span>${lines.filter(Boolean).map((l) => `<p>${l}</p>`).join('')}`;
 
-  const DOT = { park: '#2e8b57', spa: '#17a2b8', heritage: '#b8860b', ski: '#6c63ff', lake: '#4aa3df' };
+  const DOT = { park: '#2e8b57', spa: '#17a2b8', heritage: '#b8860b', ski: '#6c63ff', lake: '#4aa3df', cave: '#6b4a2b' };
   function dot(o, radius = 6) {
     return L.circleMarker([o.lat, o.lng], { radius, color: '#fff', weight: 2, fillColor: DOT[o.type], fillOpacity: 1 });
   }
 
   // Which checkbox shows each point group
   const POINT_GROUPS = { mountains: 'showMountains', cities: 'showCities', parks: 'showParks', spas: 'showSpas',
-    heritage: 'showHeritage', ski: 'showSki', lakes: 'showLakes' };
+    heritage: 'showHeritage', ski: 'showSki', lakes: 'showLakes', caves: 'showCaves' };
 
   // Remove from the map first (closes permanent tooltips), then drop tooltip/popup bindings
   function clearGroup(g) {
@@ -586,26 +666,46 @@
       .bindTooltip(tr(o.name), { direction: 'top', offset: [0, -6] })
   });
 
+  // Map area (padded) for layers that only show what is in view when zoomed in
+  let viewBounds = null;
+  const inView = (o) => !viewBounds || viewBounds.contains([o.lat, o.lng]);
+
   const POINT_SPECS = {
     mountains: {
       list: mountains,
       sig: () => `${lang}|${val('showElev')}|${val('peakSystems')}`,
-      filter: (m) => m.elev >= val('minElev'),
+      filter: (m) => m.elev >= val('minElev') && (!m.osm || (m.iso >= PEAK_ISO[zb()] && inView(m))),
       make: makePeak
     },
     cities: {
       list: cities,
-      sig: () => `${lang}|${map.getZoom() >= 8}`,
-      filter: (c) => c.pop === 0 || c.pop >= val('minPop'),
+      sig: () => `${lang}|${zb()}`,
+      filter: (c) => (c.pop === 0 || c.pop >= val('minPop')) && (!c.osm || inView(c)),
       make: makeCity
     },
     parks: simpleSpec(parks, (o) => o.kind, (o) => [o.note]),
-    spas: simpleSpec(spas, () => 'Spa town', () => ['Thermal / mineral springs']),
+    spas: {
+      list: spas,
+      sig: () => `${lang}|${zb() >= 2}`,
+      filter: () => true,
+      make: (o) => dot(o, 5).bindPopup(popup(tr(o.name), tr('Spa town'), [tr('Thermal / mineral springs')]))
+        .bindTooltip(tr(o.name), { permanent: zb() >= 2, direction: 'right', offset: [5, 0], className: 'spa-label' })
+    },
+    caves: {
+      list: caves,
+      sig: () => `${lang}|${zb() >= 1}`,
+      filter: (c) => c.famous || (zb() >= 2 && inView(c)),
+      make: (o) => L.marker([o.lat, o.lng], {
+        icon: L.divIcon({ className: 'cave-icon' + (o.famous ? ' famous' : ''), html: '<i></i>', iconSize: [14, 10], iconAnchor: [7, 8] })
+      }).bindPopup(popup(tr(o.name), tr('Cave'), [o.famous && tr('Show-cave (open to visitors)'), `${latStr(o.lat, 3)}, ${lngStr(o.lng, 3)}`]))
+        .bindTooltip(tr(o.name), { permanent: o.famous && zb() >= 1, direction: 'right', offset: [6, -2], className: 'cave-label' })
+    },
     heritage: simpleSpec(heritage, (o) => o.kind, (o) => [o.note]),
     ski: simpleSpec(ski, () => 'Ski resort', () => []),
     lakes: simpleSpec(lakePoints, () => 'Lake / reservoir', (o) => [o.note])
   };
   const markerCache = {};
+  const markerKey = (o) => o.type + ':' + o.name + ':' + o.lat;
 
   // Sync point groups — only the ones named in `only` (all if omitted)
   function renderPoints(only) {
@@ -621,14 +721,16 @@
       let cache = markerCache[name];
       if (!cache || cache.sig !== sig) {
         clearGroup(group);
-        cache = markerCache[name] = { sig, entries: spec.list.map((o) => ({ o, mk: spec.make(o) })) };
-        cache.entries.forEach(({ o, mk }) => markerIndex.set(o.type + ':' + o.name, mk));
+        cache = markerCache[name] = { sig, entries: spec.list.map((o) => ({ o, mk: null })) };
       }
-      cache.entries.forEach(({ o, mk }) => {
-        const show = visible(o) && spec.filter(o);
-        const shown = group.hasLayer(mk);
-        if (show && !shown) group.addLayer(mk);
-        else if (!show && shown) group.removeLayer(mk);
+      // markers are made the first time they are shown (there are thousands of peaks)
+      cache.entries.forEach((e) => {
+        const show = visible(e.o) && spec.filter(e.o);
+        if (show && !e.mk) { e.mk = spec.make(e.o); markerIndex.set(markerKey(e.o), e.mk); }
+        if (!e.mk) return;
+        const shown = group.hasLayer(e.mk);
+        if (show && !shown) group.addLayer(e.mk);
+        else if (!show && shown) group.removeLayer(e.mk);
       });
     });
   }
@@ -638,21 +740,24 @@
     const tri = val('peakSystems') && sys ? `<div class="tri" style="border-bottom-color:${sys.color}"></div>` : '<div class="tri"></div>';
     const label = val('showElev') ? `${tr(m.name)} <span style="font-weight:400">${fmt(m.elev)} m</span>` : tr(m.name);
     return L.marker([m.lat, m.lng], {
-      icon: L.divIcon({ className: 'peak-icon', html: tri, iconSize: [14, 12], iconAnchor: [7, 12] })
+      icon: L.divIcon({ className: 'peak-icon' + (m.osm ? ' minor' : ''), html: tri, iconSize: [14, 12], iconAnchor: [7, 12] })
     }).bindPopup(popup(tr(m.name), tr('Peak'), [
-      `<b>${fmt(m.elev)} m</b> · ${tr(m.range)}`,
+      `<b>${fmt(m.elev)} m</b>` + (m.range ? ` · ${tr(m.range)}` : ''),
       sys && `${tr('Mountain system')}: ${pick(sys.name, sys.sr)}`,
       `${latStr(m.lat, 3)}, ${lngStr(m.lng, 3)}`
-    ])).bindTooltip(label, { permanent: val('showElev'), direction: 'right', offset: [6, -6], className: 'peak-label' });
+    ])).bindTooltip(label, { permanent: val('showElev'), direction: 'right', offset: [6, -6], className: 'peak-label' + (m.osm ? ' minor' : '') });
   }
 
   function makeCity(c) {
-    const r = c.capital ? 8 : Math.max(3.5, Math.sqrt(c.pop) / 90);
-    const showLabel = c.capital || map.getZoom() >= 8 || c.pop >= 90000;
+    const r = c.capital ? 8 : Math.max(3, Math.sqrt(c.pop) / 90);
+    // big cities always named, smaller towns as you zoom in
+    const z = zb();
+    const showLabel = c.capital || c.pop >= 90000 || (z >= 1 && c.pop >= 25000) || (z >= 2 && c.pop >= 8000) || z >= 3;
+    const popText = !c.pop ? tr('n/a in Serbian 2022 census')
+      : `<b>${fmt(c.pop)}</b> <small>${tr(c.osm ? '(approx.)' : '(2022 census)')}</small>`;
     return L.circleMarker([c.lat, c.lng], {
-      radius: r, color: '#fff', weight: 2, fillColor: c.capital ? '#c6363c' : '#222', fillOpacity: 1
-    }).bindPopup(popup(tr(c.name), tr(c.capital ? 'Capital city' : 'City'),
-      [`${tr('Population')}: ` + (c.pop ? `<b>${fmt(c.pop)}</b> <small>${tr('(2022 census)')}</small>` : tr('n/a in Serbian 2022 census'))]))
+      radius: r, color: '#fff', weight: c.osm ? 1.5 : 2, fillColor: c.capital ? '#c6363c' : '#222', fillOpacity: 1
+    }).bindPopup(popup(tr(c.name), tr(c.capital ? 'Capital city' : c.osm ? 'Town' : 'City'), [`${tr('Population')}: ${popText}`]))
       .bindTooltip(tr(c.name), { permanent: showLabel, direction: 'right', offset: [r, 0], className: 'city-label' + (c.capital ? ' capital' : '') });
   }
 
@@ -705,12 +810,13 @@
    * ------------------------------------------------------------------ */
   const TASKS_FOR = {
     baseOpacity: ['base'], hillshade: ['base'],
-    showGeo: ['areas'], showOverlays: ['areas'], showLandmarks: ['landmarks', 'rivers'], showRegions: ['areas'], showDistricts: ['areas'], showOutline: ['areas'], maskOutside: ['areas'],
+    showGeo: ['areas'], showOverlays: ['areas'], showLandmarks: ['landmarks', 'features'], showRegions: ['areas'], showDistricts: ['areas'], showOutline: ['areas'], maskOutside: ['areas'],
     showKosovo: ['areas', 'points'], showAreaLabels: ['labels'],
     fillOn: ['style'], colorBy: ['style', 'ui'], palette: ['style'], singleColor: ['style'],
     fillOpacity: ['style'], borderColor: ['style'], borderWidth: ['style'],
     showMountains: ['p:mountains', 'ui'], minElev: ['p:mountains', 'ui'], showElev: ['p:mountains'], peakSystems: ['p:mountains', 'ui'],
-    showRivers: ['rivers'], riverColor: ['rivers'], showLakes: ['rivers', 'p:lakes'], showParks: ['p:parks'],
+    showRivers: ['features'], showRiverNames: ['features'], riverColor: ['features', 'rivers'], showLakes: ['features', 'p:lakes'],
+    showLakeNames: ['features'], showRanges: ['features'], showBasins: ['features'], showCaves: ['p:caves'], showParks: ['p:parks'],
     showCities: ['p:cities'], minPop: ['p:cities', 'ui'], showSpas: ['p:spas'], showHeritage: ['p:heritage'], showSki: ['p:ski'],
     showGrid: ['grid'], showCoords: ['ui'], showScale: ['ui'], darkUI: ['ui', 'style']
   };
@@ -728,13 +834,11 @@
       if (tasks.has('style')) restyleAreas();
       if (tasks.has('labels')) renderAreaLabels();
     }
-    if (has('rivers')) {
-      riverLayer.setStyle({ color: val('riverColor') });
-      landmarkLayer.setStyle(landmarkRiverStyle());
-      toggle(riverLayer, val('showRivers'));
-      toggle(lakePolyLayer, val('showLakes'));
-    }
+    if (has('rivers')) landmarkLayer.setStyle(landmarkRiverStyle());
     if (has('landmarks')) renderLandmarks();
+    // zoomed in, labels and small places are only placed inside the visible area
+    viewBounds = zb() >= 2 ? map.getBounds().pad(0.3) : null;
+    if (has('features')) renderFeatures();
     if (has('points')) renderPoints();
     else {
       const only = new Set([...tasks].filter((t) => t.startsWith('p:')).map((t) => t.slice(2)));
@@ -747,7 +851,7 @@
   // Draw order on the shared canvas, bottom to top (re-applied after layers are rebuilt)
   function restack() {
     [countryLayer, districtLayer, geoLayer, regionLayer, groupLayer, overlayLayer, outlineLayer, gridLayer, lakePolyLayer, riverLayer, landmarkLayer,
-      groups.lakes, groups.parks, groups.spas, groups.heritage, groups.ski, groups.cities]
+      groups.lakes, groups.parks, groups.caves, groups.spas, groups.heritage, groups.ski, groups.cities]
       .forEach((l) => { if (map.hasLayer(l)) l.bringToFront(); });
   }
 
@@ -768,10 +872,9 @@
    * (rivers and basin/gorge label points from the build, mountains from data/places.js)
    * ------------------------------------------------------------------ */
   // English names of the rivers (the data uses the Serbian ones)
-  const RIVER_EN = { 'Dunav': 'Danube', 'Zapadna Morava': 'West Morava', 'Južna Morava': 'South Morava', 'Velika Morava': 'Great Morava' };
+  const RIVER_EN = { 'Dunav': 'Danube', 'Zapadna Morava': 'West Morava', 'Južna Morava': 'South Morava', 'Velika Morava': 'Great Morava',
+    'Tisa': 'Tisza', 'Tamiš': 'Timiș', 'Beli Drim': 'White Drin' };
   const riverName = (n) => (lang === 'en' ? (RIVER_EN[n] || n) : script(n));
-  // Natural Earth rivers that the detailed landmark rivers replace while landmarks are shown
-  const NE_COVERED = ['Danube', 'Sava', 'Tisa', 'Morava', 'Nišava', 'Sitnica', 'Golijska Moravica', 'Drina'];
   const landmarkLayer = L.featureGroup();
   const landmarkLabels = L.layerGroup();
   const landmarkRiverStyle = () => ({ color: val('riverColor'), weight: 2.4, opacity: 0.95, lineCap: 'round' });
@@ -797,10 +900,6 @@
       });
     }
     toggle(landmarkLayer, on); toggle(landmarkLabels, on);
-    // avoid drawing the same river twice: hide the coarse copies of the landmark rivers
-    riverLayer.clearLayers();
-    riverLayer.addData({ type: 'FeatureCollection', features: (G.rivers || window.RIVERS).features
-      .filter((f) => !on || !NE_COVERED.includes(f.properties.name)) });
   }
 
   // Neighbouring countries: outline + name, in the current language (Serbia itself is drawn by our own layers)
@@ -846,13 +945,19 @@
   let lastZoomBucket = null;
   map.on('zoomend', () => {
     const z = map.getZoom();
-    const bucket = `${z >= 7.5}|${z >= 8}|${z >= 9}`;
-    if (bucket !== lastZoomBucket) { lastZoomBucket = bucket; schedule(['labels', 'p:cities', 'grid', 'landmarks']); }
+    const bucket = `${zb()}|${z >= 7.5}|${z >= 8}|${z >= 9}`;
+    if (bucket !== lastZoomBucket) {
+      lastZoomBucket = bucket;
+      schedule(['labels', 'p:cities', 'p:mountains', 'p:spas', 'p:caves', 'grid', 'landmarks', 'features']);
+    }
   });
+  // zoomed in, labels and small places follow the visible area
+  map.on('moveend', () => { if (zb() >= 2) schedule(['p:mountains', 'p:cities', 'p:caves', 'features']); });
 
   $('resetView').onclick = () => map.flyTo(HOME.center, HOME.zoom);
   const LAYER_TOGGLES = ['showRegions', 'showDistricts', 'showKosovo', 'showOutline', 'showAreaLabels', 'showMountains', 'showRivers',
-    'showLakes', 'showParks', 'showCities', 'showSpas', 'showHeritage', 'showSki', 'hillshade', 'fillOn'];
+    'showRiverNames', 'showLakes', 'showLakeNames', 'showRanges', 'showBasins', 'showCaves', 'showParks', 'showCities', 'showSpas',
+    'showHeritage', 'showSki', 'hillshade', 'fillOn'];
   $('allOn').onclick = () => {
     LAYER_TOGGLES.forEach((id) => { $(id).checked = true; });
     $('showGeo').checked = false; hiddenRegions.clear(); renderAll(); save();
@@ -874,6 +979,15 @@
     ...heritage.map((o) => ({ o, label: () => tr(o.kind), toggle: 'showHeritage' })),
     ...ski.map((o) => ({ o, label: () => tr('Ski resort'), toggle: 'showSki' })),
     ...lakePoints.map((o) => ({ o, label: () => tr('Lake'), toggle: 'showLakes' })),
+    ...caves.map((o) => ({ o, label: () => tr('Cave'), toggle: 'showCaves' })),
+    ...riverLines.map(({ r, line }) => ({ o: { name: r.n, type: 'river', bounds: line.getBounds() },
+      display: () => riverName(r.n), label: () => `${tr('River')} · ${fmt(r.l)} km`, toggle: 'showRivers' })),
+    ...lakePolyLayer.getLayers().map((p, i) => ({ o: { name: F.lakes[i].n, type: 'lake', bounds: p.getBounds(), poly: p },
+      label: () => tr('Lake'), toggle: 'showLakes' })),
+    ...(F ? F.ranges : []).map((r) => ({ o: { name: r.n, ...at(r.c), type: 'range', zoom: 10 },
+      label: () => tr('Mountain'), toggle: 'showRanges' })),
+    ...(F ? F.basins : []).map((b) => ({ o: { name: b.n, ...at(b.c), type: 'basin', zoom: 10 },
+      label: () => tr('Basin'), toggle: 'showBasins' })),
     ...districtFeatures.map((f) => ({ o: { name: f.properties.name, sr: f.properties.sr, type: 'district', feature: f }, label: () => tr('District'), toggle: 'showDistricts' })),
     ...regionFeatures.map((f) => ({ o: { name: f.properties.name, sr: f.properties.sr, type: 'region', feature: f }, label: () => tr('Region'), toggle: 'showRegions' })),
     ...geoGroups.map((f) => ({ o: { name: f.properties.name, sr: f.properties.sr, type: 'group', feature: f }, label: () => tr('Geographic region'), toggle: 'showGeo' })),
@@ -882,7 +996,7 @@
   // Every item is searchable by its English, Serbian Latin and Cyrillic names
   searchItems.forEach((it) => {
     const sr = it.o.sr || window.SR[it.o.name] || it.o.name;
-    it.display = () => (it.o.feature ? areaName(it.o.feature.properties) : tr(it.o.name));
+    it.display = it.display || (() => (it.o.feature ? areaName(it.o.feature.properties) : tr(it.o.name)));
     it.haystack = [it.o.name, sr, I18N.toCyr(sr)].map((s) => norm(I18N.unbrace(s))).join('|');
   });
   const results = $('searchResults');
@@ -898,10 +1012,15 @@
     if (o.type === 'mountain' && o.elev < val('minElev')) $('minElev').value = 0;
     if (o.type === 'city' && o.pop && o.pop < val('minPop')) $('minPop').value = 0;
     if (o.feature) { hiddenRegions.delete(o.feature.properties.region); renderAll(); map.flyToBounds(L.geoJSON(o.feature).getBounds(), { padding: [30, 30] }); }
-    else {
+    else if (o.bounds) {
       renderAll();
-      map.flyTo([o.lat, o.lng], Math.max(map.getZoom(), 10));
-      map.once('moveend', () => markerIndex.get(o.type + ':' + o.name)?.openPopup());
+      map.flyToBounds(o.bounds, { padding: [30, 30], maxZoom: 12 });
+      if (o.poly) map.once('moveend', () => o.poly.openPopup());
+    } else {
+      renderAll();
+      // OSM peaks appear only when zoomed in close
+      map.flyTo([o.lat, o.lng], o.osm ? 12 : Math.max(map.getZoom(), o.zoom || 10));
+      map.once('moveend', () => setTimeout(() => markerIndex.get(markerKey(o))?.openPopup(), 150));
     }
     save();
     results.innerHTML = ''; $('search').value = item.display();

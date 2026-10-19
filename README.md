@@ -20,6 +20,7 @@ Dvoklik na `start.bat` — otvara se `http://localhost:8080/`.
 | `data/geo-regions.js` | definicije geografskih regija i njihovih granica |
 | `data/places.js` | planine, gradovi, banje, parkovi, baština |
 | `data/geometry.js` | **generisano** — gotovi oblici regija (ne menjati ručno) |
+| `data/features.js` | **generisano** — sve reke, jezera, planine, vrhovi, kotline, pećine i gradovi iz OpenStreetMap-a |
 
 ## Menjanje granica regija
 
@@ -29,6 +30,13 @@ Dvoklik na `start.bat` — otvara se `http://localhost:8080/`.
 
 Samo za izradu oblika (stranica ih ne učitava): `tools/`, `data/districts.js`, `data/kosovo.js`,
 `data/municipalities.js`, `data/boundary-rivers.js`.
+
+## Osvežavanje reka, jezera, vrhova, pećina i gradova
+
+`data/features.js` se pravi iz OpenStreetMap preuzimanja u folderu `raw/` (nije na GitHub-u):
+`allrivers.json`, `lakesosm.json`, `lakesrel.json`, `mtranges.json`, `peaks.json`, `valleys.json`, `caves.json`, `places.json`
+(Overpass API, Srbija sa Kosovom i Metohijom). Zatim otvori `http://localhost:8080/tools/build-features.html`
+i sačuvaj **Download features.js** preko `data/features.js`. Banje su ručno upisane u `data/places.js`.
 
 ## Objavljivanje (GitHub Pages)
 

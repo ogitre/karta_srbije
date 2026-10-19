@@ -119,11 +119,21 @@ window.PARKS = [
   ['Gornje Podunavlje', 45.750, 18.950, 'Special nature reserve', 'Danube floodplain forests.']
 ];
 
+// Spas (banje) of Serbia, incl. Kosovo and Metohija [name, lat, lng] (positions of the spa settlements, mostly from OpenStreetMap)
 window.SPAS = [
-  ['Vrnjačka Banja', 43.6219, 20.8966], ['Sokobanja', 43.6433, 21.8694], ['Niška Banja', 43.2917, 22.0083],
-  ['Banja Koviljača', 44.5139, 19.1564], ['Mataruška Banja', 43.6833, 20.6000], ['Bukovička Banja', 44.3050, 20.5594],
-  ['Prolom Banja', 43.0417, 21.4000], ['Vranjska Banja', 42.5500, 21.9900], ['Banja Kanjiža', 46.0667, 20.0500],
-  ['Ribarska Banja', 43.4250, 21.5167], ['Sijarinska Banja', 42.7500, 21.6167], ['Gornja Trepča', 43.9500, 20.2500]
+  ['Vrnjačka Banja', 43.6222, 20.8929], ['Sokobanja', 43.6444, 21.8730], ['Niška Banja', 43.2933, 22.0072],
+  ['Banja Koviljača', 44.5138, 19.1586], ['Mataruška Banja', 43.6893, 20.6094], ['Bukovička Banja', 44.3072, 20.5577],
+  ['Prolom Banja', 43.0440, 21.4010], ['Lukovska Banja', 43.1670, 21.0360], ['Kuršumlijska Banja', 43.0579, 21.2550],
+  ['Vranjska Banja', 42.5470, 22.0020], ['Banja Kanjiža', 46.0657, 20.0579], ['Ribarska Banja', 43.4260, 21.5150],
+  ['Sijarinska Banja', 42.7760, 21.6050], ['Atomska Banja Gornja Trepča', 43.9500, 20.2500], ['Jošanička Banja', 43.3893, 20.7497],
+  ['Novopazarska Banja', 43.1580, 20.5460], ['Banja Vrujci', 44.2230, 20.1550], ['Ovčar Banja', 43.8960, 20.1980],
+  ['Bogutovačka Banja', 43.6330, 20.5000], ['Banja Rusanda', 45.5080, 20.3030], ['Banja Junaković', 45.6760, 19.0500],
+  ['Palić', 46.1023, 19.7635], ['Banja Badanja', 44.4700, 19.3800], ['Pribojska Banja', 43.5490, 19.5600],
+  ['Ivanjička Banja', 43.5820, 20.2300], ['Zvonačka Banja', 42.9320, 22.5740], ['Brestovačka Banja', 44.0380, 22.0930],
+  ['Gamzigradska Banja', 43.9230, 22.1740], ['Bujanovačka Banja', 42.3900, 21.8890], ['Banja Ždrelo', 44.2930, 21.4970],
+  ['Rgoška Banja', 43.5550, 22.2050], ['Banja Vrdnik', 45.1220, 19.7920], ['Banja Slankamen', 45.1410, 20.2590],
+  ['Bečejska Banja', 45.6154, 20.0490], ['Selters Banja', 44.4230, 20.6850], ['Banja Bogatić', 44.8370, 19.4820],
+  ['Pećka Banja', 42.7250, 20.3870], ['Banjska', 42.9740, 20.7810], ['Klokot Banja', 42.3690, 21.3750]
 ];
 
 // [name, lat, lng, kind, note]

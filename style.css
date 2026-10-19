@@ -352,6 +352,44 @@ details:not([open]) summary::after { transform: rotate(-90deg); }
 .grid-label { background: none; border: none; box-shadow: none; color: #555; font-size: 10px; text-shadow: 0 0 2px #fff; }
 .grid-label::before { display: none; }
 
+/* OpenStreetMap layers: river, lake, mountain and basin names */
+.feature-label { background: none; border: none; }
+.feature-label span {
+  position: absolute; white-space: nowrap; transform: translate(-50%, -50%);
+  font-size: 10.5px; text-shadow: 0 0 3px #fff, 0 0 3px #fff, 0 0 5px #fff;
+}
+.feature-label.river span { color: #1b5fa6; font-style: italic; letter-spacing: .4px; }
+.feature-label.lake span { color: #155a96; font-style: italic; font-weight: 600; }
+.feature-label.range span { color: #5a3a17; font-weight: 700; font-size: 10px; text-transform: uppercase; letter-spacing: 1.5px; opacity: .9; }
+.feature-label.basin span { color: #6b4a1f; font-style: italic; font-weight: 500; }
+[data-theme="dark"] .feature-label span { text-shadow: 0 0 3px #000, 0 0 3px #000, 0 0 5px #000; }
+[data-theme="dark"] .feature-label.river span, [data-theme="dark"] .feature-label.lake span { color: #8cc4ff; }
+[data-theme="dark"] .feature-label.range span { color: #e9cfa6; }
+[data-theme="dark"] .feature-label.basin span { color: #f0c68a; }
+.peak-icon.minor .tri { border-left-width: 5px; border-right-width: 5px; border-bottom-width: 8px; margin-top: 4px; }
+.peak-label.minor { font-size: 10px; font-weight: 500; }
+.cave-icon { background: none; border: none; }
+.cave-icon i {
+  display: block; width: 10px; height: 7px; margin: 1px auto 0; background: #6b4a2b;
+  border-radius: 6px 6px 0 0; box-shadow: 0 0 0 1.5px #fff;
+}
+.cave-icon.famous i { width: 13px; height: 9px; margin-top: 0; background: #4a2e14; }
+.cave-label, .spa-label {
+  background: none; border: none; box-shadow: none; padding: 0; font-size: 10.5px; font-weight: 600;
+  text-shadow: 0 0 3px #fff, 0 0 3px #fff, 0 0 3px #fff;
+}
+.cave-label { color: #4a2e14; }
+.spa-label { color: #0f6f7f; }
+.cave-label::before, .spa-label::before { display: none; }
+[data-theme="dark"] .cave-label, [data-theme="dark"] .spa-label { text-shadow: 0 0 3px #000, 0 0 3px #000, 0 0 5px #000; }
+[data-theme="dark"] .cave-label { color: #e9cfa6; }
+[data-theme="dark"] .spa-label { color: #8fe3ef; }
+.sw.dot.cave { background: #6b4a2b; border-radius: 6px 6px 0 0; height: 10px; }
+.sw.txt { width: auto; height: auto; font-size: 10px; font-weight: 700; line-height: 1; }
+.sw.txt.range { color: #7a5230; text-transform: uppercase; letter-spacing: .5px; }
+.sw.txt.basin { color: #8a5d24; font-style: italic; }
+[data-theme="dark"] .sw.txt.range, [data-theme="dark"] .sw.txt.basin { color: #f0c68a; }
+
 @media (max-width: 700px) {
   #panel { position: absolute; left: 0; top: 0; box-shadow: var(--shadow); width: 290px; }
   body.collapsed #panel { margin-left: -290px; }

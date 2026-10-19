@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Build features</title>
+  <style>body { font: 14px system-ui, sans-serif; margin: 24px; } pre { background: #f4f4f4; padding: 12px; }</style>
+</head>
+<body>
+  <h1>Build rivers, lakes, peaks, caves, spas and towns</h1>
+  <p>Open via the local server; reads the OpenStreetMap downloads in <code>raw/</code> and offers
+     <code>data/features.js</code> for download.</p>
+  <pre id="log"></pre>
+  <a id="download" download="features.js" hidden>Download features.js</a>
+
+  <script src="https://unpkg.com/@turf/turf@6.5.0/turf.min.js"></script>
+  <script src="../data/geometry.js"></script>
+  <script src="../data/places.js"></script>
+  <script src="build-features.js"></script>
+</body>
+</html>
