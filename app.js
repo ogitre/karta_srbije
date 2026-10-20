@@ -553,8 +553,13 @@
   const zb = () => { const z = map.getZoom(); return z < 7.5 ? 0 : z < 8.5 ? 1 : z < 9.5 ? 2 : z < 10.5 ? 3 : z < 11.5 ? 4 : 5; };
   // Shortest river (km) drawn / named, smallest lake (km²) named, lowest mountain named, least isolated peak (km) — per zoom step
   const RIVER_MIN = [40, 15, 5, 0, 0, 0], RIVER_LABEL_MIN = [150, 50, 20, 8, 3, 0];
-  const LAKE_LABEL_MIN = [5, 1.5, 0.4, 0.15, 0, 0], RANGE_MIN = [1800, 1500, 1200, 600, 0, 0], PEAK_ISO = [25, 15, 8, 4, 1.5, 0];
+  const LAKE_LABEL_MIN = [5, 1.5, 0.4, 0.15, 0, 0], RANGE_MIN = [1000, 700, 0, 0, 0, 0], PEAK_ISO = [Infinity, 15, 8, 4, 1.5, 0];
   // the best-known basins are named at every zoom, the others from zoom 7.5
+  // well-known lower mountains, named at every zoom like the high ones
+  const MAJOR_MOUNTAINS = ['Fruška gora', 'Vršačke planine', 'Avala', 'Kosmaj', 'Rudnik', 'Bukulja', 'Venčac', 'Cer', 'Vlašić', 'Juhor',
+    'Crni vrh', 'Gledićke planine', 'Kotlenik', 'Ovčar', 'Kablar', 'Jelica', 'Maljen', 'Suvobor', 'Povlen', 'Medvednik', 'Rtanj',
+    'Deli Jovan', 'Miroč', 'Bukovik', 'Boranja', 'Gučevo', 'Jagodnja', 'Ozren', 'Devica', 'Bobija'];
+  const rangeRank = (r) => (r.h >= 1500 || MAJOR_MOUNTAINS.includes(r.n) ? 0 : 1);
   const MAJOR_BASINS = ['Kosovska kotlina', 'Metohijska kotlina', 'Niška kotlina', 'Leskovačka kotlina', 'Vranjska kotlina',
     'Kruševačka kotlina', 'Čačansko-kraljevačka kotlina', 'Požeška kotlina', 'Paraćinsko-jagodinska kotlina', 'Pirotska kotlina',
     'Zaječarska kotlina', 'Valjevska kotlina', 'Sjenička kotlina'];
@@ -613,8 +618,10 @@
     // mountain names, skipping those the border landmarks already name
     const lm = val('showLandmarks') ? (window.LANDMARKS || []) : [];
     rangeLabels.clearLayers();
-    if (val('showRanges')) (F ? F.ranges : []).forEach((r) => {
-      if (r.h < RANGE_MIN[z] || !vis(r.c)) return;
+    // big and well-known mountains first, so they win when names would overlap
+    const rangeOrder = (F ? F.ranges : []).slice().sort((a, b) => rangeRank(a) - rangeRank(b));
+    if (val('showRanges')) rangeOrder.forEach((r) => {
+      if ((r.h < RANGE_MIN[z] && !MAJOR_MOUNTAINS.includes(r.n)) || !vis(r.c)) return;
       if (lm.some(([n, , [x, y]]) => n[1] === r.n && Math.abs(x - r.c[0]) < 0.3 && Math.abs(y - r.c[1]) < 0.3)) return;
       textLabel(r.c, 'range', nameIn(r.n)).addTo(rangeLabels);
     });
@@ -680,7 +687,7 @@
     cities: {
       list: cities,
       sig: () => `${lang}|${zb()}`,
-      filter: (c) => (c.pop === 0 || c.pop >= val('minPop')) && (!c.osm || inView(c)),
+      filter: (c) => (c.pop === 0 || c.pop >= val('minPop')) && (!c.osm || ((zb() >= 1 || c.pop >= 15000) && inView(c))),
       make: makeCity
     },
     parks: simpleSpec(parks, (o) => o.kind, (o) => [o.note]),
@@ -846,6 +853,7 @@
     }
     if (has('grid')) { renderGrid(); toggle(gridLayer, val('showGrid')); }
     restack();
+    declutter();
   }
 
   // Draw order on the shared canvas, bottom to top (re-applied after layers are rebuilt)
@@ -854,6 +862,37 @@
       groups.lakes, groups.parks, groups.caves, groups.spas, groups.heritage, groups.ski, groups.cities]
       .forEach((l) => { if (map.hasLayer(l)) l.bringToFront(); });
   }
+
+  /* Label decluttering: where names would overlap, only the more important one stays visible.
+   * Groups are in priority order; inside a group the earlier label wins (the data is sorted
+   * biggest city / highest mountain / longest river first). Region and country names are not
+   * part of this: they always stay, written large over the areas. */
+  const ALWAYS_SHOWN = ['.city-label.capital'];
+  const LABEL_PRIORITY = ['.city-label.capital', '.city-label', '.landmark-label span', '.feature-label.range span',
+    '.peak-label:not(.minor)', '.feature-label.river span', '.feature-label.lake span', '.feature-label.basin span',
+    '.cave-label', '.spa-label', '.peak-label.minor'];
+  let declutterFrame = 0;
+  function declutter() {
+    cancelAnimationFrame(declutterFrame);
+    declutterFrame = requestAnimationFrame(() => {
+      const box = map.getContainer();
+      const seen = new Set();
+      const collect = (sels) => sels.flatMap((s) => [...box.querySelectorAll(s)].filter((el) => !seen.has(el) && seen.add(el)));
+      const fixed = collect(ALWAYS_SHOWN), ranked = collect(LABEL_PRIORITY);
+      // read all positions first, then hide (avoids layout thrashing)
+      const rect = (el) => { const r = el.getBoundingClientRect(); return { l: r.left - 2, r: r.right + 2, t: r.top - 1, b: r.bottom + 1 }; };
+      const placed = fixed.map(rect).filter((r) => r.r > r.l);
+      const rects = ranked.map(rect);
+      const hit = (a, b) => a.l < b.r && b.l < a.r && a.t < b.b && b.t < a.b;
+      const hide = rects.map((r) => {
+        if (r.r - r.l <= 4) return false;
+        if (placed.some((p) => hit(p, r))) return true;
+        placed.push(r); return false;
+      });
+      ranked.forEach((el, i) => { el.style.visibility = hide[i] ? 'hidden' : ''; });
+    });
+  }
+  map.on('moveend', declutter);
 
   // Coalesce rapid changes (e.g. dragging a slider) into one redraw per animation frame
   const pending = new Set();

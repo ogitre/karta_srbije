@@ -215,7 +215,9 @@
     // Kosovo and Metohija mountains that OSM lacks under Serbian names
     [['Prokletije', [20.10, 42.58]], ['Šar planina', [20.90, 42.12]], ['Mokra gora', [20.40, 42.85]], ['Žljeb', [20.28, 42.78]],
       ['Koprivnik', [20.20, 42.64]], ['Paštrik', [20.55, 42.22]], ['Ošljak', [20.88, 42.22]], ['Čičavica', [20.97, 42.77]],
-      ['Skopska Crna Gora', [21.45, 42.20]], ['Grmija', [21.22, 42.68]]].forEach(([n, c]) => { if (!ranges.some((r) => r.n === n)) ranges.push({ n, c }); });
+      ['Skopska Crna Gora', [21.45, 42.20]], ['Grmija', [21.22, 42.68]],
+      // and three that are in OSM only as peaks
+      ['Medvednik', [19.6375, 44.2101]], ['Motina', [22.0257, 42.4477]], ['Kitka', [21.8417, 42.5931]]].forEach(([n, c]) => { if (!ranges.some((r) => r.n === n)) ranges.push({ n, c }); });
     ranges.forEach((r) => {
       let h = 0; all.forEach((p) => { if (p.e > h && distKm(p.c, r.c) < 7) h = p.e; }); r.h = Math.round(h); r.c = round(r.c);
     });
