@@ -55,7 +55,8 @@
   // It must be a single canvas: stacked canvases would block each other's mouse events.
   // Stacking order within it is maintained by restack().
   const vec = L.canvas({ tolerance: 3 });
-  const map = L.map('map', { preferCanvas: true, renderer: vec, zoomControl: true, minZoom: 5, maxZoom: 17, zoomSnap: 0.25, attributionControl: true })
+  const map = L.map('map', { preferCanvas: true, renderer: vec, zoomControl: true, minZoom: 6, maxZoom: 17,
+    zoomSnap: 0.25, attributionControl: true })
     .setView(HOME.center, HOME.zoom);
   map.setMaxBounds([[38, 13], [50, 28]]);
   // Non-interactive panes only (they let the mouse through)
@@ -66,7 +67,8 @@
   map.getPane('mask').style.pointerEvents = 'none';
 
   // Don't request intermediate tiles during zoom animations; keep a ring of tiles around the view for panning
-  const TILE_OPTS = { updateWhenZooming: false, keepBuffer: 3 };
+  // tiles load when panning stops (smoother dragging); a wider buffer hides the edges meanwhile
+  const TILE_OPTS = { updateWhenZooming: false, updateWhenIdle: true, keepBuffer: 4 };
   const tiles = (url, opts) => L.tileLayer(url, { ...TILE_OPTS, ...opts });
   const esri = (svc, maxNative = 17, extra = '') =>
     tiles(`https://server.arcgisonline.com/ArcGIS/rest/services/${svc}/MapServer/tile/{z}/{y}/{x}`,
@@ -569,7 +571,7 @@
 
   const riverLayer = L.featureGroup();
   const riverLines = (F ? F.rivers : []).map((r) => ({ r, line: L.polyline(r.g.map(ll), {
-    color: '#2f7fd1', weight: riverWeight(r.l), opacity: 0.9, lineCap: 'round'
+    color: '#2f7fd1', weight: riverWeight(r.l), opacity: 0.9, lineCap: 'round', smoothFactor: 1.5
   }).bindTooltip(() => `${riverName(r.n)} · ${fmt(r.l)} km`, { sticky: true }) }));
 
   const lakePolyLayer = L.featureGroup();
@@ -584,56 +586,69 @@
       .bindPopup(() => popup(nameIn(l.n), tr('Lake / reservoir'), [`${tr('Area')}: <b>${String(l.a).replace('.', lang === 'en' ? '.' : ',')} km²</b>`, tr(lakeNote(l))]))
       .addTo(lakePolyLayer);
   });
-  // Name labels of rivers, lakes, mountains and basins (redrawn on zoom steps)
+  // Name labels of rivers, lakes, mountains and basins. Each label is made once per language and then only
+  // added or removed; `p` (lower = more important) decides which one stays when labels overlap.
   const riverLabels = L.layerGroup(), lakeLabels = L.layerGroup(), rangeLabels = L.layerGroup(), basinLabels = L.layerGroup();
-  const textLabel = (c, cls, text) => L.marker([c[1], c[0]], { pane: 'labels', interactive: false,
-    icon: L.divIcon({ className: 'feature-label ' + cls, html: `<span>${text}</span>`, iconSize: [0, 0] }) });
+  const textLabel = (c, cls, text, p) => L.marker([c[1], c[0]], { pane: 'labels', interactive: false,
+    icon: L.divIcon({ className: 'feature-label ' + cls, html: `<span data-p="${p}">${text}</span>`, iconSize: [0, 0] }) });
+  let labelCache = new Map(), labelLang = null;
+  function syncLabels(group, items, cls, text, prio, show) {
+    items.forEach((it, i) => {
+      const on = show(it);
+      let mk = labelCache.get(it);
+      if (on && !mk) { mk = textLabel(it.c, cls, text(it), prio(it, i)); labelCache.set(it, mk); }
+      if (!mk) return;
+      if (on && !group.hasLayer(mk)) group.addLayer(mk);
+      else if (!on && group.hasLayer(mk)) group.removeLayer(mk);
+    });
+  }
+  // big and well-known mountains first
+  const rangeOrder = (F ? F.ranges : []).slice().sort((a, b) => rangeRank(a) - rangeRank(b));
 
   function renderFeatures() {
     const z = zb();
+    if (labelLang !== lang) {
+      labelLang = lang; labelCache = new Map();
+      [riverLabels, lakeLabels, rangeLabels, basinLabels].forEach((g) => g.clearLayers());
+    }
     const vis = (c) => !viewBounds || viewBounds.contains([c[1], c[0]]);
     const landmarksShown = val('showLandmarks') && map.getZoom() >= 7.5;
     const landmarkRivers = new Set(landmarksShown ? (G.landmarkRivers || []).map((r) => r.n) : []);
-    // rivers: longer ones first, shorter ones as you zoom in
+    // rivers: longer ones first, shorter ones as you zoom in; hovering them only when zoomed in (hit-testing is costly)
     const riversOn = val('showRivers'), color = val('riverColor');
     riverLines.forEach(({ r, line }) => {
       const show = riversOn && r.l >= RIVER_MIN[z];
-      if (show) { line.setStyle({ color }); if (!riverLayer.hasLayer(line)) riverLayer.addLayer(line); }
+      line.options.interactive = z >= 2;
+      if (show) { if (line.options.color !== color) line.setStyle({ color }); if (!riverLayer.hasLayer(line)) { riverLayer.addLayer(line); stackDirty = true; } }
       else if (riverLayer.hasLayer(line)) riverLayer.removeLayer(line);
     });
     toggle(riverLayer, riversOn);
-    riverLabels.clearLayers();
-    if (riversOn && val('showRiverNames')) (F ? F.rivers : []).forEach((r) => {
-      if (r.l >= RIVER_LABEL_MIN[z] && !landmarkRivers.has(r.n) && vis(r.c)) textLabel(r.c, 'river', riverName(r.n)).addTo(riverLabels);
-    });
-    toggle(riverLabels, riversOn && val('showRiverNames'));
+    const riverNames = riversOn && val('showRiverNames');
+    syncLabels(riverLabels, F ? F.rivers : [], 'river', (r) => riverName(r.n), (r) => -r.l,
+      (r) => riverNames && r.l >= RIVER_LABEL_MIN[z] && !landmarkRivers.has(r.n) && vis(r.c));
+    toggle(riverLabels, riverNames);
 
     toggle(lakePolyLayer, val('showLakes'));
-    lakeLabels.clearLayers();
-    if (val('showLakes') && val('showLakeNames')) (F ? F.lakes : []).forEach((l) => {
-      if (l.a >= LAKE_LABEL_MIN[z] && vis(l.c)) textLabel(l.c, 'lake', nameIn(l.n)).addTo(lakeLabels);
-    });
-    toggle(lakeLabels, val('showLakes') && val('showLakeNames'));
+    lakePolyLayer.eachLayer((l) => { l.options.interactive = z >= 1; });
+    const lakeNames = val('showLakes') && val('showLakeNames');
+    syncLabels(lakeLabels, F ? F.lakes : [], 'lake', (l) => nameIn(l.n), (l) => -l.a,
+      (l) => lakeNames && l.a >= LAKE_LABEL_MIN[z] && vis(l.c));
+    toggle(lakeLabels, lakeNames);
 
     // mountain names, skipping those the border landmarks already name
     const lm = val('showLandmarks') ? (window.LANDMARKS || []) : [];
-    rangeLabels.clearLayers();
-    // big and well-known mountains first, so they win when names would overlap
-    const rangeOrder = (F ? F.ranges : []).slice().sort((a, b) => rangeRank(a) - rangeRank(b));
-    if (val('showRanges')) rangeOrder.forEach((r) => {
-      if ((r.h < RANGE_MIN[z] && !MAJOR_MOUNTAINS.includes(r.n)) || !vis(r.c)) return;
-      if (lm.some(([n, , [x, y]]) => n[1] === r.n && Math.abs(x - r.c[0]) < 0.3 && Math.abs(y - r.c[1]) < 0.3)) return;
-      textLabel(r.c, 'range', nameIn(r.n)).addTo(rangeLabels);
-    });
-    toggle(rangeLabels, val('showRanges'));
+    const ranges = val('showRanges');
+    syncLabels(rangeLabels, rangeOrder, 'range', (r) => nameIn(r.n), (r, i) => i, (r) => ranges
+      && (r.h >= RANGE_MIN[z] || MAJOR_MOUNTAINS.includes(r.n)) && vis(r.c)
+      && !lm.some(([n, , [x, y]]) => n[1] === r.n && Math.abs(x - r.c[0]) < 0.3 && Math.abs(y - r.c[1]) < 0.3));
+    toggle(rangeLabels, ranges);
 
     const lmBasins = new Set([...(landmarksShown ? (G.landmarkPoints || []).map((p) => p.n[1]) : []),
       ...lm.filter(([, kind]) => kind === 'area').map(([n]) => n[1])]);
-    basinLabels.clearLayers();
-    if (val('showBasins')) (F ? F.basins : []).forEach((b) => {
-      if (!lmBasins.has(b.n) && (z >= 1 || MAJOR_BASINS.includes(b.n)) && vis(b.c)) textLabel(b.c, 'basin', nameIn(b.n)).addTo(basinLabels);
-    });
-    toggle(basinLabels, val('showBasins'));
+    const basins = val('showBasins');
+    syncLabels(basinLabels, F ? F.basins : [], 'basin', (b) => nameIn(b.n), (b) => (MAJOR_BASINS.includes(b.n) ? 0 : 1),
+      (b) => basins && !lmBasins.has(b.n) && (z >= 1 || MAJOR_BASINS.includes(b.n)) && vis(b.c));
+    toggle(basinLabels, basins);
   }
 
   /* ------------------------------------------------------------------ *
@@ -705,7 +720,7 @@
       make: (o) => L.marker([o.lat, o.lng], {
         icon: L.divIcon({ className: 'cave-icon' + (o.famous ? ' famous' : ''), html: '<i></i>', iconSize: [14, 10], iconAnchor: [7, 8] })
       }).bindPopup(popup(tr(o.name), tr('Cave'), [o.famous && tr('Show-cave (open to visitors)'), `${latStr(o.lat, 3)}, ${lngStr(o.lng, 3)}`]))
-        .bindTooltip(tr(o.name), { permanent: o.famous && zb() >= 1, direction: 'right', offset: [6, -2], className: 'cave-label' })
+        .bindTooltip(`<span data-p="${o.famous ? 0 : 1}">${tr(o.name)}</span>`, { permanent: o.famous && zb() >= 1, direction: 'right', offset: [6, -2], className: 'cave-label' })
     },
     heritage: simpleSpec(heritage, (o) => o.kind, (o) => [o.note]),
     ski: simpleSpec(ski, () => 'Ski resort', () => []),
@@ -745,7 +760,7 @@
   function makePeak(m) {
     const sys = window.MOUNTAIN_SYSTEMS[m.system];
     const tri = val('peakSystems') && sys ? `<div class="tri" style="border-bottom-color:${sys.color}"></div>` : '<div class="tri"></div>';
-    const label = val('showElev') ? `${tr(m.name)} <span style="font-weight:400">${fmt(m.elev)} m</span>` : tr(m.name);
+    const label = `<span data-p="${-m.elev}">${tr(m.name)}` + (val('showElev') ? ` <span style="font-weight:400">${fmt(m.elev)} m</span>` : '') + '</span>';
     return L.marker([m.lat, m.lng], {
       icon: L.divIcon({ className: 'peak-icon' + (m.osm ? ' minor' : ''), html: tri, iconSize: [14, 12], iconAnchor: [7, 12] })
     }).bindPopup(popup(tr(m.name), tr('Peak'), [
@@ -765,7 +780,8 @@
     return L.circleMarker([c.lat, c.lng], {
       radius: r, color: '#fff', weight: c.osm ? 1.5 : 2, fillColor: c.capital ? '#c6363c' : '#222', fillOpacity: 1
     }).bindPopup(popup(tr(c.name), tr(c.capital ? 'Capital city' : c.osm ? 'Town' : 'City'), [`${tr('Population')}: ${popText}`]))
-      .bindTooltip(tr(c.name), { permanent: showLabel, direction: 'right', offset: [r, 0], className: 'city-label' + (c.capital ? ' capital' : '') });
+      .bindTooltip(`<span data-p="${-c.pop}">${tr(c.name)}</span>`, { permanent: showLabel, direction: 'right', offset: [r, 0],
+        className: 'city-label' + (c.capital ? ' capital' : c.pop >= 90000 ? ' big' : '') });
   }
 
   /* ------------------------------------------------------------------ *
@@ -808,7 +824,9 @@
   });
   map.on('mouseout', () => { lastMouse = null; coordsBox.textContent = ''; });
 
-  function toggle(layer, on) { if (on) { if (!map.hasLayer(layer)) layer.addTo(map); } else map.removeLayer(layer); }
+  // re-stacking the canvas redraws it, so it is done only after layers were added
+  let stackDirty = true;
+  function toggle(layer, on) { if (on) { if (!map.hasLayer(layer)) { layer.addTo(map); stackDirty = true; } } else map.removeLayer(layer); }
 
   /* ------------------------------------------------------------------ *
    * Rendering: each control only redraws what it affects.
@@ -852,7 +870,7 @@
       if (only.size) renderPoints(only);
     }
     if (has('grid')) { renderGrid(); toggle(gridLayer, val('showGrid')); }
-    restack();
+    if (stackDirty || has('areas') || has('grid') || has('landmarks')) { restack(); stackDirty = false; }
     declutter();
   }
 
@@ -864,32 +882,35 @@
   }
 
   /* Label decluttering: where names would overlap, only the more important one stays visible.
-   * Groups are in priority order; inside a group the earlier label wins (the data is sorted
-   * biggest city / highest mountain / longest river first). Region and country names are not
-   * part of this: they always stay, written large over the areas. */
-  const ALWAYS_SHOWN = ['.city-label.capital'];
-  const LABEL_PRIORITY = ['.city-label.capital', '.city-label', '.landmark-label span', '.feature-label.range span',
+   * Groups are in priority order; inside a group labels are ranked by their data-p (lower wins:
+   * bigger city, higher mountain, longer river…). Region and country names, the capital and the big
+   * cities always stay and the other labels give way to them. Labels off screen are skipped. */
+  const ALWAYS_SHOWN = ['.city-label.capital', '.city-label.big', '.area-label span', '.country-label span'];
+  const LABEL_PRIORITY = ['.city-label', '.landmark-label span', '.feature-label.range span',
     '.peak-label:not(.minor)', '.feature-label.river span', '.feature-label.lake span', '.feature-label.basin span',
     '.cave-label', '.spa-label', '.peak-label.minor'];
+  const prio = (el) => { const p = el.dataset.p ?? el.querySelector('[data-p]')?.dataset.p; return p == null ? 0 : +p; };
   let declutterFrame = 0;
   function declutter() {
     cancelAnimationFrame(declutterFrame);
     declutterFrame = requestAnimationFrame(() => {
-      const box = map.getContainer();
+      const box = map.getContainer(), view = box.getBoundingClientRect();
       const seen = new Set();
-      const collect = (sels) => sels.flatMap((s) => [...box.querySelectorAll(s)].filter((el) => !seen.has(el) && seen.add(el)));
-      const fixed = collect(ALWAYS_SHOWN), ranked = collect(LABEL_PRIORITY);
-      // read all positions first, then hide (avoids layout thrashing)
+      const collect = (sel) => [...box.querySelectorAll(sel)].filter((el) => !seen.has(el) && seen.add(el));
+      const fixed = ALWAYS_SHOWN.flatMap(collect);
+      const ranked = LABEL_PRIORITY.flatMap((sel) => collect(sel).map((el) => ({ el, p: prio(el) })).sort((a, b) => a.p - b.p));
+      // read all positions first, then hide (one layout pass)
       const rect = (el) => { const r = el.getBoundingClientRect(); return { l: r.left - 2, r: r.right + 2, t: r.top - 1, b: r.bottom + 1 }; };
-      const placed = fixed.map(rect).filter((r) => r.r > r.l);
-      const rects = ranked.map(rect);
+      const onScreen = (r) => r.r > view.left && r.l < view.right && r.b > view.top && r.t < view.bottom && r.r - r.l > 4;
+      const placed = fixed.map(rect).filter(onScreen);
+      const rects = ranked.map(({ el }) => rect(el));
       const hit = (a, b) => a.l < b.r && b.l < a.r && a.t < b.b && b.t < a.b;
       const hide = rects.map((r) => {
-        if (r.r - r.l <= 4) return false;
+        if (!onScreen(r)) return false;
         if (placed.some((p) => hit(p, r))) return true;
         placed.push(r); return false;
       });
-      ranked.forEach((el, i) => { el.style.visibility = hide[i] ? 'hidden' : ''; });
+      ranked.forEach(({ el }, i) => { const v = hide[i] ? 'hidden' : ''; if (el.style.visibility !== v) el.style.visibility = v; });
     });
   }
   map.on('moveend', declutter);
@@ -981,10 +1002,10 @@
   }));
 
   // Only a few things depend on zoom level (district vs region labels, city labels, grid spacing)
+  const zoomBucket = () => { const z = map.getZoom(); return `${zb()}|${z >= 7.5}|${z >= 8}|${z >= 9}`; };
   let lastZoomBucket = null;
   map.on('zoomend', () => {
-    const z = map.getZoom();
-    const bucket = `${zb()}|${z >= 7.5}|${z >= 8}|${z >= 9}`;
+    const bucket = zoomBucket();
     if (bucket !== lastZoomBucket) {
       lastZoomBucket = bucket;
       schedule(['labels', 'p:cities', 'p:mountains', 'p:spas', 'p:caves', 'grid', 'landmarks', 'features']);
@@ -1063,6 +1084,7 @@
     }
     save();
     results.innerHTML = ''; $('search').value = item.display();
+    if (phone) document.body.classList.add('collapsed'); // show the result on the map
   }
   function drawResults() {
     results.innerHTML = current.map((it, i) =>
@@ -1161,11 +1183,14 @@
   });
 
   /* ------------------------------------------------------------------ */
+  // phones start with the panel hidden, so the map is visible first
+  const phone = matchMedia('(max-width: 700px)').matches;
+  if (phone) document.body.classList.add('collapsed');
   load();
   applyStaticI18n();
   applyBase();
   drawCountries();
   renderAll();
   setView('map');
-  lastZoomBucket = `${map.getZoom() >= 7.5}|${map.getZoom() >= 8}|${map.getZoom() >= 9}`;
+  lastZoomBucket = zoomBucket();
 })();

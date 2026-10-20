@@ -31,7 +31,10 @@ body {
   overflow: hidden;
 }
 
-#stage { flex: 1; position: relative; height: 100vh; min-width: 0; }
+/* isolation: the map controls (z-index 1000 in Leaflet) stay under the side panel */
+#stage { flex: 1; position: relative; height: 100vh; min-width: 0; isolation: isolate; }
+/* with the panel hidden, the menu button sits top-left: move the zoom buttons below it */
+body.collapsed .leaflet-top.leaflet-left { top: 52px; }
 #map { height: 100%; background: var(--bg); }
 
 /* ---------- map / text view switch ---------- */
@@ -78,9 +81,6 @@ body {
 }
 .region-card button:hover { background: var(--hover); }
 @media (max-width: 700px) {
-  /* the side panel covers the map's left edge on narrow screens: keep the zoom buttons clear of it */
-  body:not(.collapsed) .leaflet-top.leaflet-left { left: 290px; }
-  body:not(.collapsed) .view-switch { left: calc(290px + (100% - 290px) / 2); }
   .region-text { padding: 64px 16px 24px; }
   .region-grid { grid-template-columns: 1fr; }
 }
@@ -391,7 +391,11 @@ details:not([open]) summary::after { transform: rotate(-90deg); }
 [data-theme="dark"] .sw.txt.range, [data-theme="dark"] .sw.txt.basin { color: #f0c68a; }
 
 @media (max-width: 700px) {
-  #panel { position: absolute; left: 0; top: 0; box-shadow: var(--shadow); width: 290px; }
-  body.collapsed #panel { margin-left: -290px; }
+  /* on phones the panel slides over the map (it starts hidden, see app.js) */
+  #panel { position: absolute; left: 0; top: 0; box-shadow: var(--shadow); width: min(320px, 88vw); transition: transform .25s ease; }
+  body.collapsed #panel { margin-left: 0; transform: translateX(-105%); }
+  .view-switch button { padding: 7px 14px; font-size: 13px; }
+  /* one short credits line, clear of the scale bar */
+  .leaflet-control-attribution { max-width: calc(100vw - 110px); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 9px; }
   #info { left: 12px; right: 12px; top: auto; bottom: 60px; max-width: none; }
 }
