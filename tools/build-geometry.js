@@ -222,13 +222,14 @@
       geoFinal[id] = fromPolys(parts.filter((p, i) => i === 0 || km2(p) >= Math.min(150, 0.4 * main)));
     });
     const covered = unionAll(Object.values(geoFinal));
-    // only small crumbs (0.5–50 km²); larger land outside all regions (e.g. Kosovo) stays without a region
-    const gaps = polysOf(clip('difference', withK, turf.buffer(covered, 0.05, KM))).filter((p) => km2(p) > 0.5 && km2(p) < 50);
+    // only small crumbs (0.05–50 km²; slivers between cut lines and holes left by the valleys); they join
+    // whichever region they share the longest border with. Larger land outside all regions stays without one.
+    const gaps = polysOf(clip('difference', withK, turf.buffer(covered, 0.05, KM))).filter((p) => km2(p) > 0.05 && km2(p) < 50);
     gaps.forEach((gap) => {
       const ring = turf.buffer(gap, 0.4, KM);
       const gb = turf.bbox(ring);
       let best = null, bestA = 0;
-      flexible.forEach((id) => {
+      Object.keys(geoFinal).forEach((id) => {
         const rb = turf.bbox(geoFinal[id]);
         if (rb[0] > gb[2] || rb[2] < gb[0] || rb[1] > gb[3] || rb[3] < gb[1]) return;
         const a = km2(clip('intersect', ring, geoFinal[id]));
@@ -242,6 +243,8 @@
     // 7. Pack. Regions reaching into Kosovo also get a version without it (used when Kosovo is hidden).
     const geo = {};
     Object.entries(geoFinal).forEach(([id, f]) => {
+      // small holes are bits of the Stalać gorge left only in the other valley (the gorge belongs to both)
+      f = fillHoles(f, 2);
       geo[id] = pack(f, km2(f));
       const meta = GR.find((g) => g.id === id);
       if (!meta.kosovo && km2(clip('intersect', f, kosovo)) > 1) {
