@@ -224,8 +224,8 @@ window.BuildHelpers = (() => {
     if (!outers.length) return null;
     // smooth: drop staircase vertices, then round the corners
     const smooth = (ring) => {
-      const s = turf.simplify(turf.lineString(ring), { tolerance: 0.0018 }).geometry.coordinates;
-      return s.length >= 4 ? chaikin(s, 3) : null;
+      const s = turf.simplify(turf.lineString(ring), { tolerance: 0.0025 }).geometry.coordinates;
+      return s.length >= 4 ? chaikin(s, 4) : null;
     };
     const polys = outers.map((p) => p.map(smooth).filter(Boolean)).filter((p) => p.length && Math.abs(ringArea(p[0])) > 1e-5);
     return polys.length ? turf.multiPolygon(polys) : null;
@@ -339,7 +339,7 @@ window.BuildHelpers = (() => {
     // Pixels near the river itself are always kept, so narrow gorges stay connected.
     {
       const mpp = dem.metersPerPixel(H / 2);
-      const OPEN = 700 / mpp, CLOSE = 600 / mpp, CORE = 450;
+      const OPEN = 1600 / mpp, CLOSE = 2600 / mpp, CORE = 450;
       // chamfer distance (in pixels) from every pixel to the nearest pixel where inside(i) is false
       const distTo = (inside) => {
         const d = new Float32Array(W * H);
