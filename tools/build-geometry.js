@@ -184,6 +184,16 @@
           if (best) geoFinal[best] = close(clip('union', geoFinal[best], turf.buffer(p, 0.05, KM)));
         });
       });
+      // A valley can be widened to fill its container north of a line (`fillFrom`)
+      (window.GEO_REGIONS || []).filter((g) => g.fillFrom && geoFinal[g.id] && geoFinal[g.fillFrom.id]).forEach((g) => {
+        const { id: from, above } = g.fillFrom;
+        const north = turf.polygon([[...above, [above[above.length - 1][0], 47], [above[0][0], 47], above[0]]]);
+        const take = clip('intersect', geoFinal[from], north);
+        if (!take) return;
+        geoFinal[g.id] = close(clip('union', geoFinal[g.id], turf.buffer(take, 0.05, KM)));
+        geoFinal[from] = keepBig(close(clip('difference', geoFinal[from], north)), 1);
+        log(`  ${g.id} widened with ${km2(take).toFixed(0)} km² of ${from}`);
+      });
     }
     log('municipality-based regions…');
 

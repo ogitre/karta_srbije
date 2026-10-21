@@ -67,6 +67,9 @@ window.GEO_REGIONS = [
     noteSr: 'Nastaje od Preševske i Binačke Moravice u Bujanovačkoj kotlini; Vranjska kotlina; Grdelička klisura; Pečenjevačko suženje; Niška kotlina; Mezgrajsko suženje; Aleksinačka kotlina; Stalaćka klisura.' },
   { id: 'velikoPomoravlje', name: 'Great Morava valley', sr: 'Veliko Pomoravlje', valley: true, group: 'smm',
     label: ['Great Morava|valley', 'Veliko|Pomoravlje'],
+    // widened to the massif's borders: everything of the massif north of this line (Stalać – Bukovik)
+    // joins the valley, so it fills the space between Šumadija and Eastern Serbia
+    fillFrom: { id: 'smmMasa', above: [[18, 43.655], [21.40, 43.665], [21.636, 43.692], [23.5, 43.692]] },
     note: 'Stalać gorge (the Great Morava forms); upper Great Morava basin (Jagodina–Paraćin); Bagrdan gorge; lower Great Morava basin (Požarevac); flows into the Danube near Kovin.',
     noteSr: 'Stalaćka klisura (nastaje Velika Morava); Gornjovelikomoravska kotlina (Jagodinsko-paraćinska); Bagrdanska klisura; Donjovelikomoravska kotlina (Požarevačka); kod Kovina utiče (uliva se) u Dunav.' },
 
