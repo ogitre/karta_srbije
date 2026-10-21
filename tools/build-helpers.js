@@ -224,8 +224,8 @@ window.BuildHelpers = (() => {
     if (!outers.length) return null;
     // smooth: drop staircase vertices, then round the corners
     const smooth = (ring) => {
-      const s = turf.simplify(turf.lineString(ring), { tolerance: 0.0012 }).geometry.coordinates;
-      return s.length >= 4 ? chaikin(s, 2) : null;
+      const s = turf.simplify(turf.lineString(ring), { tolerance: 0.0018 }).geometry.coordinates;
+      return s.length >= 4 ? chaikin(s, 3) : null;
     };
     const polys = outers.map((p) => p.map(smooth).filter(Boolean)).filter((p) => p.length && Math.abs(ringArea(p[0])) > 1e-5);
     return polys.length ? turf.multiPolygon(polys) : null;
@@ -332,6 +332,58 @@ window.BuildHelpers = (() => {
     const regionIds = [...new Set(units.map((u) => u.region))];
     const regionOf = units.map((u) => regionIds.indexOf(u.region));
     for (let i = 0; i < label.length; i++) if (label[i] >= 0) label[i] = regionOf[label[i]];
+
+    // Round off the outline of each valley region (morphological opening, then closing):
+    //  - opening (shrink, then grow back) cuts off thin tongues that run up side valleys and small bumps
+    //  - closing (grow, then shrink back) fills narrow notches between hills
+    // Pixels near the river itself are always kept, so narrow gorges stay connected.
+    {
+      const mpp = dem.metersPerPixel(H / 2);
+      const OPEN = 700 / mpp, CLOSE = 600 / mpp, CORE = 450;
+      // chamfer distance (in pixels) from every pixel to the nearest pixel where inside(i) is false
+      const distTo = (inside) => {
+        const d = new Float32Array(W * H);
+        for (let i = 0; i < d.length; i++) d[i] = inside(i) ? 1e9 : 0;
+        const a = 1, b = Math.SQRT2;
+        for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+          const i = y * W + x; if (!d[i]) continue;
+          let v = d[i];
+          if (x > 0) v = Math.min(v, d[i - 1] + a);
+          if (y > 0) { v = Math.min(v, d[i - W] + a); if (x > 0) v = Math.min(v, d[i - W - 1] + b); if (x < W - 1) v = Math.min(v, d[i - W + 1] + b); }
+          d[i] = v;
+        }
+        for (let y = H - 1; y >= 0; y--) for (let x = W - 1; x >= 0; x--) {
+          const i = y * W + x; if (!d[i]) continue;
+          let v = d[i];
+          if (x < W - 1) v = Math.min(v, d[i + 1] + a);
+          if (y < H - 1) { v = Math.min(v, d[i + W] + a); if (x < W - 1) v = Math.min(v, d[i + W + 1] + b); if (x > 0) v = Math.min(v, d[i + W - 1] + b); }
+          d[i] = v;
+        }
+        return d;
+      };
+      regionIds.forEach((id, ri) => {
+        const isR = (i) => label[i] === ri;
+        // opening
+        const inner = distTo(isR);                                   // distance to the outside
+        const eroded = (i) => inner[i] > OPEN;
+        const toCore = distTo((i) => !eroded(i));                    // distance to the shrunken shape
+        let kept = 0, cut = 0;
+        for (let i = 0; i < label.length; i++) {
+          if (label[i] !== ri) continue;
+          if (toCore[i] <= OPEN + 0.5 || dist[i] <= CORE) kept++;
+          else { label[i] = -1; cut++; }
+        }
+        // closing: only unlabelled pixels may be filled
+        const outer = distTo((i) => label[i] !== ri);                // distance to the region
+        const grown = (i) => outer[i] <= CLOSE;
+        const toOut = distTo(grown);                                 // distance to outside the grown shape
+        let filled = 0;
+        for (let i = 0; i < label.length; i++) {
+          if (label[i] === -1 && toOut[i] > CLOSE + 0.5) { label[i] = ri; filled++; }
+        }
+        log(`  smoothing ${id}: cut ${(cut * mpp * mpp / 1e6).toFixed(1)} km², filled ${(filled * mpp * mpp / 1e6).toFixed(1)} km²`);
+      });
+    }
 
     // Smooth ragged edges: two passes of a 3×3 majority filter (only near labelled pixels)
     let bx0 = W, by0 = H, bx1 = 0, by1 = 0;
