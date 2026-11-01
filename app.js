@@ -221,7 +221,8 @@
 
   const inputs = [...document.querySelectorAll('#panel input[id], #panel select[id]')].filter((el) => el.id !== 'search');
   // Settings that no longer have their own control: fixed values, or they follow another toggle
-  const FIXED = { minElev: 0, showElev: true, peakSystems: false, riverColor: '#2f7fd1', showRiverNames: true, showLakeNames: true };
+  const FIXED = { minElev: 0, showElev: true, peakSystems: false, riverColor: '#2f7fd1', showRiverNames: true, showLakeNames: true,
+    showKosovo: true, showHeritage: false, showSki: false };
   const ALIAS = { showRanges: 'showMountains' };
   const val = (id) => {
     if (ALIAS[id]) id = ALIAS[id];
@@ -242,13 +243,13 @@
     basemap: 'terrain', lang: 'cyr', hidden: [], hiddenGeo: [],
     inputs: {
       hillshade: true, baseOpacity: '1', maskOutside: true,
-      showGeo: true, showOverlays: true, showLandmarks: true, showRegions: false, showDistricts: false, showKosovo: true,
+      showGeo: true, showOverlays: true, showLandmarks: true, showRegions: false, showDistricts: false,
       showOutline: false, showAreaLabels: true,
       fillOn: true, colorBy: 'region', palette: 'classic', singleColor: '#c6363c', fillOpacity: '0.35',
       borderColor: '#3b3b3b', borderWidth: '0',
       showLakes: true, showReservoirs: true, showMountains: true, showRivers: true, showVolcanic: true,
       showBasins: true, showGorges: true, showCaves: true, showParks: true,
-      showCities: true, minPop: '0', showSpas: true, showHeritage: false, showSki: false,
+      showCities: true, minPop: '0', showSpas: true,
       showGrid: true, showCoords: true, showScale: true, darkUI: true
     }
   };
@@ -784,8 +785,24 @@
     });
   }
 
+  // The highest peaks get a star and a note: [English, Serbian]
+  const TOP_PEAKS = {
+    'Đeravica': ['Highest peak of Serbia', 'Najviši vrh Srbije'],
+    'Midžor': ['Highest peak of central Serbia (without Kosovo and Metohija)', 'Najviši vrh centralne Srbije (bez KiM)'],
+    'Gudurički vrh': ['Highest peak of Vojvodina', 'Najviši vrh Vojvodine']
+  };
   function makePeak(m) {
     const sys = window.MOUNTAIN_SYSTEMS[m.system];
+    const top = !m.osm && TOP_PEAKS[m.name];
+    if (top) {
+      const label = `<span data-p="-9999">★ ${tr(m.name)} <span style="font-weight:500">${fmt(m.elev)} m</span><small>${textPair(top)}</small></span>`;
+      return L.marker([m.lat, m.lng], {
+        icon: L.divIcon({ className: 'peak-icon top', html: '<div class="star">★</div>', iconSize: [22, 22], iconAnchor: [11, 11] }),
+        zIndexOffset: 1000
+      }).bindPopup(popup(`★ ${tr(m.name)}`, textPair(top), [`<b>${fmt(m.elev)} m</b>` + (m.range ? ` · ${tr(m.range)}` : ''),
+        `${latStr(m.lat, 3)}, ${lngStr(m.lng, 3)}`]))
+        .bindTooltip(label, { permanent: true, direction: 'right', offset: [10, 0], className: 'peak-label top' });
+    }
     const tri = val('peakSystems') && sys ? `<div class="tri" style="border-bottom-color:${sys.color}"></div>` : '<div class="tri"></div>';
     const label = `<span data-p="${-m.elev}">${tr(m.name)}` + (val('showElev') ? ` <span style="font-weight:400">${fmt(m.elev)} m</span>` : '') + '</span>';
     return L.marker([m.lat, m.lng], {
@@ -911,7 +928,7 @@
    * Groups are in priority order; inside a group labels are ranked by their data-p (lower wins:
    * bigger city, higher mountain, longer river…). Region and country names, the capital and the big
    * cities always stay and the other labels give way to them. Labels off screen are skipped. */
-  const ALWAYS_SHOWN = ['.city-label.capital', '.city-label.big', '.area-label span', '.country-label span'];
+  const ALWAYS_SHOWN = ['.peak-label.top', '.city-label.capital', '.city-label.big', '.area-label span', '.country-label span'];
   const LABEL_PRIORITY = ['.city-label', '.landmark-label span', '.volcano-label', '.feature-label.range span',
     '.peak-label:not(.minor)', '.feature-label.river span', '.feature-label.lake span', '.feature-label.basin span', '.feature-label.gorge span',
     '.cave-label', '.spa-label', '.peak-label.minor'];
@@ -1037,9 +1054,9 @@
   map.on('moveend', () => { if (zb() >= 2) schedule(['p:mountains', 'p:cities', 'p:caves', 'features']); });
 
   $('resetView').onclick = () => map.flyTo(HOME.center, HOME.zoom);
-  const LAYER_TOGGLES = ['showRegions', 'showDistricts', 'showKosovo', 'showOutline', 'showAreaLabels', 'showMountains', 'showRivers',
+  const LAYER_TOGGLES = ['showRegions', 'showDistricts', 'showOutline', 'showAreaLabels', 'showMountains', 'showRivers',
     'showLakes', 'showReservoirs', 'showVolcanic', 'showBasins', 'showGorges', 'showCaves', 'showParks', 'showCities', 'showSpas',
-    'showHeritage', 'showSki', 'hillshade', 'fillOn'];
+    'hillshade', 'fillOn'];
   $('allOn').onclick = () => {
     LAYER_TOGGLES.forEach((id) => { $(id).checked = true; });
     $('showGeo').checked = false; hiddenRegions.clear(); renderAll(); save();
@@ -1058,8 +1075,6 @@
     ...mountains.map((o) => ({ o, label: () => `${tr('Peak')} · ${o.elev} m`, toggle: 'showMountains' })),
     ...parks.map((o) => ({ o, label: () => tr(o.kind), toggle: 'showParks' })),
     ...spas.map((o) => ({ o, label: () => tr('Spa'), toggle: 'showSpas' })),
-    ...heritage.map((o) => ({ o, label: () => tr(o.kind), toggle: 'showHeritage' })),
-    ...ski.map((o) => ({ o, label: () => tr('Ski resort'), toggle: 'showSki' })),
     ...lakePoints.map((o) => ({ o, label: () => tr('Lake'), toggle: 'showLakes' })),
     ...caves.map((o) => ({ o, label: () => tr('Cave'), toggle: 'showCaves' })),
     ...riverLines.map(({ r, line }) => ({ o: { name: r.n, type: 'river', bounds: line.getBounds() },
@@ -1093,7 +1108,6 @@
     exclusiveDivision(item.toggle);
     if (o.region) hiddenRegions.delete(o.region);
     if (o.type === 'geo') hiddenGeo.delete(o.feature.properties.id);
-    if (o.region === 'kosovo' || o.feature?.properties.region === 'kosovo' || o.feature?.properties.kosovo) $('showKosovo').checked = true;
     if (o.type === 'city' && o.pop && o.pop < val('minPop')) $('minPop').value = 0;
     if (o.feature) { hiddenRegions.delete(o.feature.properties.region); renderAll(); map.flyToBounds(L.geoJSON(o.feature).getBounds(), { padding: [30, 30] }); }
     else if (o.bounds) {
@@ -1191,7 +1205,6 @@
     if (!f) return;
     $('showGeo').checked = true; exclusiveDivision('showGeo');
     if (r.map.overlay) $('showOverlays').checked = true;
-    if (f.properties.kosovo || r.map.region === 'kopaonik') $('showKosovo').checked = true;
     if (f.properties.id) hiddenGeo.delete(f.properties.id);
     renderAll(); saveSoon();
     setView('map');

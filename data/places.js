@@ -233,7 +233,15 @@ window.GORGES = [
   [['Vratna gates', 'Vratnjanske kapije'], [22.33, 44.37]],
   [['Rugova gorge', 'Rugovska klisura'], [20.17, 42.69]],
   [['Kačanik gorge', 'Kačanička klisura'], [21.26, 42.24]],
-  [['Dečani gorge', 'Dečanska klisura'], [20.21, 42.55]]
+  [['Dečani gorge', 'Dečanska klisura'], [20.21, 42.55]],
+  // the gorges inside Đerdap
+  [['Golubac gorge', 'Golubačka klisura'], [21.72, 44.66]],
+  [['Gospođin vir gorge', 'Gospođin vir'], [21.97, 44.57]],
+  [['Kazan gorge', 'Kazanska klisura (Kazan)'], [22.28, 44.62]],
+  [['Sip gorge', 'Sipska klisura'], [22.55, 44.67]],
+  [['Đetinja canyon', 'Kanjon Đetinje'], [19.83, 43.85]],
+  [['Studenica canyon', 'Kanjon Studenice'], [20.55, 43.45]],
+  [['Rača canyon', 'Kanjon Rače'], [19.48, 43.93]]
 ];
 
 // Volcanic relief of Serbia: [English, Serbian], [lng, lat], [note English, note Serbian]

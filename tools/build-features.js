@@ -233,20 +233,25 @@
 
     // ---- basins (kotline) -------------------------------------------------------------------------
     const basins = [];
-    valleyEls.forEach((e) => {
-      const n = nameOf(e.tags); const c = e.type === 'node' ? [e.lon, e.lat] : [e.center.lon, e.center.lat];
-      if (!/kotlina/i.test(n) || !inSerbia(c)) return;
+    // named valleys, plus every OSM object named "… klisura / kanjon / kotlina" (raw/gorges.json, when downloaded)
+    const namedEls = [...valleyEls, ...(await fetch('../raw/gorges.json').then((r) => r.json()).then((j) => j.elements).catch(() => []))];
+    namedEls.forEach((e) => {
+      const n = nameOf(e.tags || {}); const c = e.type === 'node' ? [e.lon, e.lat] : e.center && [e.center.lon, e.center.lat];
+      if (!c || !/kotlina/i.test(n) || !inSerbia(c)) return;
       const fixed = n.replace('Bajinobaštinska', 'Bajinobaštanska');
       if (basins.some((b) => b.n === fixed)) return;
       basins.push({ n: fixed, c: round(c) });
     });
     // well-known basins missing in OSM
     [['Kosovska kotlina', [21.05, 42.63]], ['Metohijska kotlina', [20.45, 42.52]], ['Knjaževačka kotlina', [22.26, 43.57]],
-      ['Sokobanjska kotlina', [21.86, 43.64]], ['Prokupačka kotlina', [21.56, 43.24]], ['Svrljiška kotlina', [22.12, 43.42]]].forEach(([n, c]) => { if (!basins.some((b) => b.n === n)) basins.push({ n, c }); });
+      ['Sokobanjska kotlina', [21.86, 43.64]], ['Prokupačka kotlina', [21.56, 43.24]], ['Svrljiška kotlina', [22.12, 43.42]],
+      ['Užička kotlina', [19.85, 43.86]], ['Lužnička kotlina', [22.41, 43.08]], ['Vlasotinačka kotlina', [22.10, 42.96]],
+      ['Kuršumlijska kotlina', [21.27, 43.14]], ['Dimitrovgradska kotlina', [22.78, 43.02]], ['Bujanovačka kotlina', [21.77, 42.47]],
+      ['Ljubovijska kotlina', [19.37, 44.19]], ['Preševska kotlina', [21.64, 42.31]], ['Crnorečka kotlina', [21.95, 43.83]]].forEach(([n, c]) => { if (!basins.some((b) => b.n === n)) basins.push({ n, c }); });
     log(`basins: ${basins.length}: ${basins.map((b) => b.n).join(', ')}`);
 
     // ---- gorges and canyons: the hand list in places.js plus named ones from OSM -----------------
-    const gorgeEls = [...valleyEls, ...(await fetch('../raw/gorges.json').then((r) => r.json()).then((j) => j.elements).catch(() => []))];
+    const gorgeEls = namedEls;
     const gorges = (window.GORGES || []).map(([n, c]) => ({ n: n[1], en: n[0], c }));
     gorgeEls.forEach((e) => {
       let n = nameOf(e.tags || {});
