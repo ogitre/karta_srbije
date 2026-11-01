@@ -212,3 +212,37 @@ window.LANDMARKS = [
   [['Kruševac basin', 'Kruševačka kotlina'], 'area', [21.30, 43.60]],
   [['Kovin', 'Kovin'], 'place', [20.977, 44.742]]
 ];
+
+// Gorges and canyons (klisure i kanjoni): [English, Serbian], [lng, lat] of the middle of the gorge.
+// More are added from OpenStreetMap by tools/build-features.html.
+window.GORGES = [
+  [['Iron Gates gorge (Đerdap)', 'Đerdapska klisura'], [22.15, 44.55]],
+  [['Ovčar–Kablar gorge', 'Ovčarsko-kablarska klisura'], [20.19, 43.90]],
+  [['Grdelica gorge', 'Grdelička klisura'], [22.07, 42.85]],
+  [['Sićevo gorge', 'Sićevačka klisura'], [22.08, 43.33]],
+  [['Stalać gorge', 'Stalaćka klisura'], [21.42, 43.66]],
+  [['Bagrdan gorge', 'Bagrdanska klisura'], [21.17, 44.10]],
+  [['Ibar gorge', 'Ibarska klisura'], [20.55, 43.55]],
+  [['Jelašnica gorge', 'Jelašnička klisura'], [22.05, 43.29]],
+  [['Gornjak gorge', 'Gornjačka klisura'], [21.52, 44.27]],
+  [['Uvac canyon', 'Kanjon Uvca'], [19.95, 43.40]],
+  [['Drina canyon', 'Kanjon Drine'], [19.45, 43.93]],
+  [['Mileševka canyon', 'Kanjon Mileševke'], [19.72, 43.33]],
+  [['Trešnjica canyon', 'Kanjon Trešnjice'], [19.40, 44.12]],
+  [['Gradac gorge', 'Klisura Gradca'], [19.85, 44.23]],
+  [['Vratna gates', 'Vratnjanske kapije'], [22.33, 44.37]],
+  [['Rugova gorge', 'Rugovska klisura'], [20.17, 42.69]],
+  [['Kačanik gorge', 'Kačanička klisura'], [21.26, 42.24]],
+  [['Dečani gorge', 'Dečanska klisura'], [20.21, 42.55]]
+];
+
+// Volcanic relief of Serbia: [English, Serbian], [lng, lat], [note English, note Serbian]
+window.VOLCANIC = [
+  [['Rudnik', 'Rudnik'], [20.522, 44.128], ['Volcanic mountain of andesite and dacite; old mines.', 'Vulkanska planina od andezita i dacita; stari rudnici.']],
+  [['Ostrovica', 'Ostrovica'], [20.567, 44.087], ['Volcanic neck (plug) on the slope of Rudnik.', 'Vulkanski čep (vrat) na padini Rudnika.']],
+  [['Borač', 'Borač'], [20.59, 43.96], ['Volcanic neck (Boračko krčevo) rising above the village.', 'Vulkanski čep (Boračko krčevo) iznad sela.']],
+  [['Rogozna', 'Rogozna'], [20.58, 43.01], ['Mountain of volcanic rocks (andesite, dacite).', 'Planina od vulkanskih stena (andezit, dacit).']],
+  [['Zvečan', 'Zvečan'], [20.84, 42.91], ['Volcanic cone with a medieval fortress on top.', 'Vulkanska kupa sa srednjovekovnom tvrđavom.']],
+  [['Lece volcanic massif', 'Lecki vulkanski masiv'], [21.62, 42.88], ['The largest volcanic massif in Serbia (Medveđa–Lebane).', 'Najveći vulkanski masiv u Srbiji (Medveđa–Lebane).']],
+  [['Timok eruptive area', 'Timočka eruptivna oblast'], [22.12, 44.05], ['Old volcanic area around Bor, rich in copper ore.', 'Stara vulkanska oblast oko Bora, bogata rudom bakra.']]
+];

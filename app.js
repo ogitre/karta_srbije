@@ -208,6 +208,8 @@
     [...mountains, ...cities].forEach((o) => { if (o.osm) o.region = regionOf(o.lat, o.lng); });
   }
   const caves = F ? F.caves.map((c) => ({ name: c.n, ...at(c.c), famous: !!c.f, type: 'cave', region: regionOf(c.c[1], c.c[0]) })) : [];
+  // volcanic relief: [English, Serbian] names and notes from data/places.js
+  const volcanic = (window.VOLCANIC || []).map(([n, [lng, lat], note]) => ({ name: n[0], sr: n[1], pair: n, lat, lng, note, type: 'volcanic', region: regionOf(lat, lng) }));
 
   /* ------------------------------------------------------------------ *
    * State (persisted in localStorage)
@@ -218,7 +220,15 @@
   let basemapKey = 'terrain';
 
   const inputs = [...document.querySelectorAll('#panel input[id], #panel select[id]')].filter((el) => el.id !== 'search');
-  const val = (id) => { const el = $(id); return el.type === 'checkbox' ? el.checked : el.type === 'range' ? +el.value : el.value; };
+  // Settings that no longer have their own control: fixed values, or they follow another toggle
+  const FIXED = { minElev: 0, showElev: true, peakSystems: false, riverColor: '#2f7fd1', showRiverNames: true, showLakeNames: true };
+  const ALIAS = { showRanges: 'showMountains' };
+  const val = (id) => {
+    if (ALIAS[id]) id = ALIAS[id];
+    const el = $(id);
+    if (!el) return FIXED[id];
+    return el.type === 'checkbox' ? el.checked : el.type === 'range' ? +el.value : el.value;
+  };
 
   function save() {
     try {
@@ -236,9 +246,8 @@
       showOutline: false, showAreaLabels: true,
       fillOn: true, colorBy: 'region', palette: 'classic', singleColor: '#c6363c', fillOpacity: '0.35',
       borderColor: '#3b3b3b', borderWidth: '0',
-      showMountains: true, minElev: '500', showElev: true, peakSystems: false, showRanges: true,
-      showRivers: true, showRiverNames: true, riverColor: '#2f7fd1', showLakes: true, showLakeNames: true,
-      showBasins: true, showCaves: true, showParks: true,
+      showLakes: true, showReservoirs: true, showMountains: true, showRivers: true, showVolcanic: true,
+      showBasins: true, showGorges: true, showCaves: true, showParks: true,
       showCities: true, minPop: '0', showSpas: true, showHeritage: false, showSki: false,
       showGrid: true, showCoords: true, showScale: true, darkUI: true
     }
@@ -574,21 +583,24 @@
     color: '#2f7fd1', weight: riverWeight(r.l), opacity: 0.9, lineCap: 'round', smoothFactor: 1.5
   }).bindTooltip(() => `${riverName(r.n)} · ${fmt(r.l)} km`, { sticky: true }) }));
 
-  const lakePolyLayer = L.featureGroup();
+  // Natural lakes and artificial lakes (reservoirs, `r` in the data) are separate layers
+  const lakePolyLayer = L.featureGroup(), reservoirLayer = L.featureGroup();
+  const lakeOn = (l) => val(l.r ? 'showReservoirs' : 'showLakes');
   // the hand-written lake notes (data/places.js) go to the nearest lake outline
   const lakeNote = (l) => {
     const p = (window.LAKE_POINTS || []).find(([, lat, lng]) => Math.hypot(lat - l.c[1], (lng - l.c[0]) * 0.72) < 0.08);
     return p ? p[3] : null;
   };
-  (F ? F.lakes : []).forEach((l) => {
-    L.polygon(l.g.map(ll), { color: '#2f7fd1', weight: 1, fillColor: '#6fb7ea', fillOpacity: 0.85 })
-      .bindTooltip(() => nameIn(l.n), { sticky: true })
-      .bindPopup(() => popup(nameIn(l.n), tr('Lake / reservoir'), [`${tr('Area')}: <b>${String(l.a).replace('.', lang === 'en' ? '.' : ',')} km²</b>`, tr(lakeNote(l))]))
-      .addTo(lakePolyLayer);
-  });
-  // Name labels of rivers, lakes, mountains and basins. Each label is made once per language and then only
+  const lakePolys = (F ? F.lakes : []).map((l) => L.polygon(l.g.map(ll), {
+    color: l.r ? '#1f6fb8' : '#2f7fd1', weight: 1, fillColor: l.r ? '#4a95d6' : '#6fb7ea', fillOpacity: 0.85
+  }).bindTooltip(() => nameIn(l.n), { sticky: true })
+    .bindPopup(() => popup(nameIn(l.n), tr(l.r ? 'Artificial lake (reservoir)' : 'Natural lake'),
+      [`${tr('Area')}: <b>${String(l.a).replace('.', lang === 'en' ? '.' : ',')} km²</b>`, tr(lakeNote(l))]))
+    .addTo(l.r ? reservoirLayer : lakePolyLayer));
+  // Name labels of rivers, lakes, mountains, basins and gorges. Each label is made once per language and then only
   // added or removed; `p` (lower = more important) decides which one stays when labels overlap.
   const riverLabels = L.layerGroup(), lakeLabels = L.layerGroup(), rangeLabels = L.layerGroup(), basinLabels = L.layerGroup();
+  const gorgeLabels = L.layerGroup();
   const textLabel = (c, cls, text, p) => L.marker([c[1], c[0]], { pane: 'labels', interactive: false,
     icon: L.divIcon({ className: 'feature-label ' + cls, html: `<span data-p="${p}">${text}</span>`, iconSize: [0, 0] }) });
   let labelCache = new Map(), labelLang = null;
@@ -609,7 +621,7 @@
     const z = zb();
     if (labelLang !== lang) {
       labelLang = lang; labelCache = new Map();
-      [riverLabels, lakeLabels, rangeLabels, basinLabels].forEach((g) => g.clearLayers());
+      [riverLabels, lakeLabels, rangeLabels, basinLabels, gorgeLabels].forEach((g) => g.clearLayers());
     }
     const vis = (c) => !viewBounds || viewBounds.contains([c[1], c[0]]);
     const landmarksShown = val('showLandmarks') && map.getZoom() >= 7.5;
@@ -629,11 +641,11 @@
     toggle(riverLabels, riverNames);
 
     toggle(lakePolyLayer, val('showLakes'));
-    lakePolyLayer.eachLayer((l) => { l.options.interactive = z >= 1; });
-    const lakeNames = val('showLakes') && val('showLakeNames');
+    toggle(reservoirLayer, val('showReservoirs'));
+    lakePolys.forEach((p) => { p.options.interactive = z >= 1; });
     syncLabels(lakeLabels, F ? F.lakes : [], 'lake', (l) => nameIn(l.n), (l) => -l.a,
-      (l) => lakeNames && l.a >= LAKE_LABEL_MIN[z] && vis(l.c));
-    toggle(lakeLabels, lakeNames);
+      (l) => lakeOn(l) && l.a >= LAKE_LABEL_MIN[z] && vis(l.c));
+    toggle(lakeLabels, val('showLakes') || val('showReservoirs'));
 
     // mountain names, skipping those the border landmarks already name
     const lm = val('showLandmarks') ? (window.LANDMARKS || []) : [];
@@ -649,6 +661,12 @@
     syncLabels(basinLabels, F ? F.basins : [], 'basin', (b) => nameIn(b.n), (b) => (MAJOR_BASINS.includes(b.n) ? 0 : 1),
       (b) => basins && !lmBasins.has(b.n) && (z >= 1 || MAJOR_BASINS.includes(b.n)) && vis(b.c));
     toggle(basinLabels, basins);
+
+    // gorges and canyons: the hand-picked well-known ones (they have an English name) from the start, the rest when zoomed in
+    const gorges = val('showGorges');
+    syncLabels(gorgeLabels, F ? F.gorges || [] : [], 'gorge', (g) => (lang === 'en' && g.en ? g.en : nameIn(g.n)), (g) => (g.en ? 0 : 1),
+      (g) => gorges && !lmBasins.has(g.n) && (z >= 1 || g.en) && vis(g.c));
+    toggle(gorgeLabels, gorges);
   }
 
   /* ------------------------------------------------------------------ *
@@ -656,7 +674,7 @@
    * ------------------------------------------------------------------ */
   const groups = {
     mountains: L.featureGroup(), cities: L.featureGroup(), parks: L.featureGroup(), spas: L.featureGroup(),
-    heritage: L.featureGroup(), ski: L.featureGroup(), lakes: L.featureGroup(), caves: L.featureGroup()
+    heritage: L.featureGroup(), ski: L.featureGroup(), lakes: L.featureGroup(), caves: L.featureGroup(), volcanic: L.featureGroup()
   };
   const markerIndex = new Map();
   const visible = (o) => !o.region || (!hiddenRegions.has(o.region) && (o.region !== 'kosovo' || val('showKosovo')));
@@ -670,7 +688,7 @@
 
   // Which checkbox shows each point group
   const POINT_GROUPS = { mountains: 'showMountains', cities: 'showCities', parks: 'showParks', spas: 'showSpas',
-    heritage: 'showHeritage', ski: 'showSki', lakes: 'showLakes', caves: 'showCaves' };
+    heritage: 'showHeritage', ski: 'showSki', lakes: 'showLakes', caves: 'showCaves', volcanic: 'showVolcanic' };
 
   // Remove from the map first (closes permanent tooltips), then drop tooltip/popup bindings
   function clearGroup(g) {
@@ -712,6 +730,15 @@
       filter: () => true,
       make: (o) => dot(o, 5).bindPopup(popup(tr(o.name), tr('Spa town'), [tr('Thermal / mineral springs')]))
         .bindTooltip(tr(o.name), { permanent: zb() >= 2, direction: 'right', offset: [5, 0], className: 'spa-label' })
+    },
+    volcanic: {
+      list: volcanic,
+      sig: () => lang,
+      filter: () => true,
+      make: (o) => L.marker([o.lat, o.lng], {
+        icon: L.divIcon({ className: 'volcano-icon', html: '<i></i>', iconSize: [16, 14], iconAnchor: [8, 13] })
+      }).bindPopup(popup(textPair(o.pair), tr('Volcanic relief'), [textPair(o.note)]))
+        .bindTooltip(`<span data-p="0">${textPair(o.pair)}</span>`, { permanent: true, direction: 'right', offset: [7, -6], className: 'volcano-label' })
     },
     caves: {
       list: caves,
@@ -839,9 +866,8 @@
     showKosovo: ['areas', 'points'], showAreaLabels: ['labels'],
     fillOn: ['style'], colorBy: ['style', 'ui'], palette: ['style'], singleColor: ['style'],
     fillOpacity: ['style'], borderColor: ['style'], borderWidth: ['style'],
-    showMountains: ['p:mountains', 'ui'], minElev: ['p:mountains', 'ui'], showElev: ['p:mountains'], peakSystems: ['p:mountains', 'ui'],
-    showRivers: ['features'], showRiverNames: ['features'], riverColor: ['features', 'rivers'], showLakes: ['features', 'p:lakes'],
-    showLakeNames: ['features'], showRanges: ['features'], showBasins: ['features'], showCaves: ['p:caves'], showParks: ['p:parks'],
+    showMountains: ['p:mountains', 'features'], showRivers: ['features'], showLakes: ['features', 'p:lakes'], showReservoirs: ['features'],
+    showVolcanic: ['p:volcanic'], showBasins: ['features'], showGorges: ['features'], showCaves: ['p:caves'], showParks: ['p:parks'],
     showCities: ['p:cities'], minPop: ['p:cities', 'ui'], showSpas: ['p:spas'], showHeritage: ['p:heritage'], showSki: ['p:ski'],
     showGrid: ['grid'], showCoords: ['ui'], showScale: ['ui'], darkUI: ['ui', 'style']
   };
@@ -876,8 +902,8 @@
 
   // Draw order on the shared canvas, bottom to top (re-applied after layers are rebuilt)
   function restack() {
-    [countryLayer, districtLayer, geoLayer, regionLayer, groupLayer, overlayLayer, outlineLayer, gridLayer, lakePolyLayer, riverLayer, landmarkLayer,
-      groups.lakes, groups.parks, groups.caves, groups.spas, groups.heritage, groups.ski, groups.cities]
+    [countryLayer, districtLayer, geoLayer, regionLayer, groupLayer, overlayLayer, outlineLayer, gridLayer, lakePolyLayer, reservoirLayer, riverLayer, landmarkLayer,
+      groups.lakes, groups.parks, groups.caves, groups.volcanic, groups.spas, groups.heritage, groups.ski, groups.cities]
       .forEach((l) => { if (map.hasLayer(l)) l.bringToFront(); });
   }
 
@@ -886,8 +912,8 @@
    * bigger city, higher mountain, longer river…). Region and country names, the capital and the big
    * cities always stay and the other labels give way to them. Labels off screen are skipped. */
   const ALWAYS_SHOWN = ['.city-label.capital', '.city-label.big', '.area-label span', '.country-label span'];
-  const LABEL_PRIORITY = ['.city-label', '.landmark-label span', '.feature-label.range span',
-    '.peak-label:not(.minor)', '.feature-label.river span', '.feature-label.lake span', '.feature-label.basin span',
+  const LABEL_PRIORITY = ['.city-label', '.landmark-label span', '.volcano-label', '.feature-label.range span',
+    '.peak-label:not(.minor)', '.feature-label.river span', '.feature-label.lake span', '.feature-label.basin span', '.feature-label.gorge span',
     '.cave-label', '.spa-label', '.peak-label.minor'];
   const prio = (el) => { const p = el.dataset.p ?? el.querySelector('[data-p]')?.dataset.p; return p == null ? 0 : +p; };
   let declutterFrame = 0;
@@ -980,11 +1006,7 @@
     countryLayer.eachLayer((l) => l.setStyle(countryStyle()));
     if (val('showScale')) scale.addTo(map); else scale.remove();
     if (!val('showCoords')) coordsBox.textContent = '';
-    $('minElevOut').textContent = fmt(val('minElev')) + ' m';
     $('minPopOut').textContent = fmt(val('minPop'));
-    $('systemLegend').innerHTML = val('peakSystems') && val('showMountains')
-      ? Object.values(window.MOUNTAIN_SYSTEMS).map((s) => `<li><i style="border-bottom-color:${s.color}"></i>${pick(s.name, s.sr)}</li>`).join('')
-      : '';
     $('singleColor').closest('label').style.display = val('colorBy') === 'single' ? '' : 'none';
     $('palette').closest('label').style.display = val('colorBy') === 'single' ? 'none' : '';
   }
@@ -1016,7 +1038,7 @@
 
   $('resetView').onclick = () => map.flyTo(HOME.center, HOME.zoom);
   const LAYER_TOGGLES = ['showRegions', 'showDistricts', 'showKosovo', 'showOutline', 'showAreaLabels', 'showMountains', 'showRivers',
-    'showRiverNames', 'showLakes', 'showLakeNames', 'showRanges', 'showBasins', 'showCaves', 'showParks', 'showCities', 'showSpas',
+    'showLakes', 'showReservoirs', 'showVolcanic', 'showBasins', 'showGorges', 'showCaves', 'showParks', 'showCities', 'showSpas',
     'showHeritage', 'showSki', 'hillshade', 'fillOn'];
   $('allOn').onclick = () => {
     LAYER_TOGGLES.forEach((id) => { $(id).checked = true; });
@@ -1042,12 +1064,15 @@
     ...caves.map((o) => ({ o, label: () => tr('Cave'), toggle: 'showCaves' })),
     ...riverLines.map(({ r, line }) => ({ o: { name: r.n, type: 'river', bounds: line.getBounds() },
       display: () => riverName(r.n), label: () => `${tr('River')} · ${fmt(r.l)} km`, toggle: 'showRivers' })),
-    ...lakePolyLayer.getLayers().map((p, i) => ({ o: { name: F.lakes[i].n, type: 'lake', bounds: p.getBounds(), poly: p },
-      label: () => tr('Lake'), toggle: 'showLakes' })),
+    ...lakePolys.map((p, i) => ({ o: { name: F.lakes[i].n, type: 'lake', bounds: p.getBounds(), poly: p },
+      label: () => tr(F.lakes[i].r ? 'Artificial lake (reservoir)' : 'Natural lake'), toggle: F.lakes[i].r ? 'showReservoirs' : 'showLakes' })),
     ...(F ? F.ranges : []).map((r) => ({ o: { name: r.n, ...at(r.c), type: 'range', zoom: 10 },
-      label: () => tr('Mountain'), toggle: 'showRanges' })),
+      label: () => tr('Mountain'), toggle: 'showMountains' })),
     ...(F ? F.basins : []).map((b) => ({ o: { name: b.n, ...at(b.c), type: 'basin', zoom: 10 },
       label: () => tr('Basin'), toggle: 'showBasins' })),
+    ...(F ? F.gorges || [] : []).map((g) => ({ o: { name: g.n, ...at(g.c), type: 'gorge', zoom: 11 },
+      display: () => (lang === 'en' && g.en ? g.en : nameIn(g.n)), label: () => tr('Gorge'), toggle: 'showGorges' })),
+    ...volcanic.map((o) => ({ o, display: () => textPair(o.pair), label: () => tr('Volcanic relief'), toggle: 'showVolcanic' })),
     ...districtFeatures.map((f) => ({ o: { name: f.properties.name, sr: f.properties.sr, type: 'district', feature: f }, label: () => tr('District'), toggle: 'showDistricts' })),
     ...regionFeatures.map((f) => ({ o: { name: f.properties.name, sr: f.properties.sr, type: 'region', feature: f }, label: () => tr('Region'), toggle: 'showRegions' })),
     ...geoGroups.map((f) => ({ o: { name: f.properties.name, sr: f.properties.sr, type: 'group', feature: f }, label: () => tr('Geographic region'), toggle: 'showGeo' })),
@@ -1069,7 +1094,6 @@
     if (o.region) hiddenRegions.delete(o.region);
     if (o.type === 'geo') hiddenGeo.delete(o.feature.properties.id);
     if (o.region === 'kosovo' || o.feature?.properties.region === 'kosovo' || o.feature?.properties.kosovo) $('showKosovo').checked = true;
-    if (o.type === 'mountain' && o.elev < val('minElev')) $('minElev').value = 0;
     if (o.type === 'city' && o.pop && o.pop < val('minPop')) $('minPop').value = 0;
     if (o.feature) { hiddenRegions.delete(o.feature.properties.region); renderAll(); map.flyToBounds(L.geoJSON(o.feature).getBounds(), { padding: [30, 30] }); }
     else if (o.bounds) {

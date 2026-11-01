@@ -399,3 +399,27 @@ details:not([open]) summary::after { transform: rotate(-90deg); }
   .leaflet-control-attribution { max-width: calc(100vw - 110px); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 9px; }
   #info { left: 12px; right: 12px; top: auto; bottom: 60px; max-width: none; }
 }
+
+/* gorges, volcanic relief, artificial lakes */
+.feature-label.gorge span { color: #7a3e12; font-style: italic; font-weight: 600; font-size: 10px; }
+[data-theme="dark"] .feature-label.gorge span { color: #ffb37a; }
+.volcano-icon { background: none; border: none; }
+.volcano-icon i {
+  display: block; width: 0; height: 0; margin: 0 auto; position: relative;
+  border-left: 8px solid transparent; border-right: 8px solid transparent; border-bottom: 13px solid #b3261e;
+  filter: drop-shadow(0 0 1px #fff) drop-shadow(0 0 1px #fff);
+}
+/* crater */
+.volcano-icon i::after {
+  content: ''; position: absolute; left: -3px; top: 0; width: 6px; height: 3px; background: #ffb347; border-radius: 0 0 3px 3px;
+}
+.volcano-label {
+  background: none; border: none; box-shadow: none; padding: 0; font-size: 11px; font-weight: 700; color: #8f1d17;
+  text-shadow: 0 0 3px #fff, 0 0 3px #fff, 0 0 3px #fff;
+}
+.volcano-label::before { display: none; }
+[data-theme="dark"] .volcano-label { color: #ff9a8f; text-shadow: 0 0 3px #000, 0 0 3px #000, 0 0 5px #000; }
+.sw.tri.volcano { border-bottom-color: #b3261e; }
+.dot.reservoir { background: #1f6fb8; border-radius: 3px; }
+.sw.txt.gorge { color: #a0521d; font-style: italic; }
+[data-theme="dark"] .sw.txt.gorge { color: #ffb37a; }
