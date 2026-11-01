@@ -76,8 +76,8 @@ window.GEO_REGIONS = [
   // --- Serbo-Macedonian massif: Danube (N); Resava hills – Bukovik – Seličevica – Babička gora – Kruševica –
   // Vlasina river to Ruj – Bulgarian border (E); Macedonian border to Skopska Crna Gora (S);
   // Kosovo border – Goljak – Majdan – Radan – Toplica/Rasina – Kruševac basin – Juhor – Crni vrh – Azanja hills (W).
-  // container: the two Morava valleys lie inside it; this region is the rest of the massif, and
-  // the group 'smm' (this + both valleys) is drawn and labelled as Srpsko-makedonska masa.
+  // container: the two Morava valleys lie inside it. The build cuts them out of this region, but the map
+  // draws the region with the shape of the group 'smm' (the whole massif) and the valleys on top of it.
   { id: 'smmMasa', name: 'Serbo-Macedonian massif', sr: 'Srpsko-makedonska masa', group: 'smm',
     // second seed: the wedge west of Radan (Kosanica, south of Kuršumlija) between Kopaonik region and the
     // Goljak–Majdan–Radan line, which no notebook boundary covers; assigned to the massif

@@ -140,6 +140,9 @@
   const countryLayer = L.featureGroup();
   const countryLabelLayer = L.layerGroup();
 
+  // The Serbo-Macedonian massif is one region over its whole area (the shape of its group); the two
+  // Morava valleys lie on top of it and are drawn last, so they overlap it
+  const geoShapeOf = (g) => (g.container && g.group && G.geoGroups && G.geoGroups[g.group]) || G.geo[g.id];
   const geoFeatures = window.GEO_REGIONS.filter((g) => {
     if (!G.geo[g.id]) console.warn(`Geographic region "${g.id}" has no geometry — re-run tools/build-geometry.html`);
     return G.geo[g.id];
@@ -148,11 +151,11 @@
       kind: 'geo', id: g.id, index, name: g.name, sr: g.sr, note: g.note, noteSr: g.noteSr, label: g.label, kosovo: !!g.kosovo,
       groups: g.group ? [].concat(g.group) : [], natural: !!(g.seed || g.valley), valley: !!g.valley, hideLabel: !!g.hideLabel
     };
-    const f = feature(G.geo[g.id], props);
+    const f = feature(geoShapeOf(g), props);
     // Regions reaching into Kosovo have a second shape without it, used while Kosovo is hidden
     if (G.geo[g.id].k) f.properties.noKosovo = feature(G.geo[g.id].k, props);
     return f;
-  });
+  }).sort((a, b) => a.properties.valley - b.properties.valley);
   // Overlays (e.g. the Nišava valley): shown on top of the regions, not regions themselves
   const overlayFeatures = (window.GEO_OVERLAYS || []).filter((o) => G.overlays && G.overlays[o.id])
     .map((o) => feature(G.overlays[o.id], { kind: 'overlay', id: o.id, name: o.name, sr: o.sr, note: o.note, noteSr: o.noteSr, label: o.label }));
@@ -243,7 +246,7 @@
     basemap: 'terrain', lang: 'cyr', hidden: [], hiddenGeo: [],
     inputs: {
       hillshade: true, baseOpacity: '1', maskOutside: true,
-      showGeo: true, showOverlays: true, showLandmarks: true, showRegions: false, showDistricts: false,
+      showGeo: true, showValleys: true, showOverlays: true, showLandmarks: true, showRegions: false, showDistricts: false,
       showOutline: false, showAreaLabels: true,
       fillOn: true, colorBy: 'region', palette: 'classic', singleColor: '#c6363c', fillOpacity: '0.35',
       borderColor: '#3b3b3b', borderWidth: '0',
@@ -334,7 +337,9 @@
       opacity: bw === 0 ? 0 : 0.9,
       fillColor: colorFor(p),
       fillOpacity: filled ? val('fillOpacity') : 0,
-      dashArray: p.id === 'kosovo' || p.kosovo ? '6 4' : null
+      dashArray: p.id === 'kosovo' || p.kosovo ? '6 4' : null,
+      // the Morava valleys lie on top of the massif: always outlined, dashed
+      ...(p.valley && { weight: Math.max(bw, 1.6), opacity: 0.9, dashArray: '6 4' })
     };
   }
 
@@ -385,7 +390,8 @@
   const regionLayer = L.geoJSON(null, { style: styleArea, onEachFeature: bindArea });
   const districtLayer = L.geoJSON(null, { style: styleArea, onEachFeature: bindArea });
   const geoLayer = L.geoJSON(null, { style: styleArea, onEachFeature: bindArea });
-  const geoVisible = (f) => !hiddenGeo.has(f.properties.id) && (!f.properties.kosovo || val('showKosovo'));
+  const geoVisible = (f) => !hiddenGeo.has(f.properties.id) && (!f.properties.kosovo || val('showKosovo'))
+    && (!f.properties.valley || val('showValleys'));
   const groupName = (id) => pick(window.GEO_GROUPS[id].name, window.GEO_GROUPS[id].sr);
   // Thick shared outline around each group (drawn when geographic regions are shown)
   const groupLayer = L.featureGroup();
@@ -534,7 +540,7 @@
     if (val('showGeo')) {
       geoFeatures.forEach((f) => {
         const p = f.properties;
-        if (p.kosovo && !val('showKosovo')) return;
+        if ((p.kosovo && !val('showKosovo')) || (p.valley && !val('showValleys'))) return;
         const b = document.createElement('button');
         b.className = 'chip' + (hiddenGeo.has(p.id) ? ' off' : '');
         b.innerHTML = `<i style="background:${colorFor(p)}"></i>${areaName(p)}`;
@@ -892,7 +898,7 @@
    * ------------------------------------------------------------------ */
   const TASKS_FOR = {
     baseOpacity: ['base'], hillshade: ['base'],
-    showGeo: ['areas'], showOverlays: ['areas'], showLandmarks: ['landmarks', 'features'], showRegions: ['areas'], showDistricts: ['areas'], showOutline: ['areas'], maskOutside: ['areas'],
+    showGeo: ['areas'], showValleys: ['areas'], showOverlays: ['areas'], showLandmarks: ['landmarks', 'features'], showRegions: ['areas'], showDistricts: ['areas'], showOutline: ['areas'], maskOutside: ['areas'],
     showKosovo: ['areas', 'points'], showAreaLabels: ['labels'],
     fillOn: ['style'], colorBy: ['style', 'ui'], palette: ['style'], singleColor: ['style'],
     fillOpacity: ['style'], borderColor: ['style'], borderWidth: ['style'],

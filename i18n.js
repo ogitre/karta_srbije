@@ -39,6 +39,7 @@ window.SR = {
   'Includes': 'Obuhvata',
   'Show on map': 'Prikaži na mapi',
   'Nišava valley (not a region)': 'Nišavska dolina (nije regija)',
+  'Great and South Morava valleys (on the massif)': 'Veliko i Južno Pomoravlje (na Srpsko-makedonskoj masi)',
   'Border landmarks (rivers, mountains, basins)': 'Orijentiri granica (reke, planine, kotline)',
   'Not a region': 'Nije regija',
   'Shape follows the valley floor and its slopes (from elevation data).': 'Oblik prati dno doline i njene padine (prema podacima o nadmorskoj visini).',
