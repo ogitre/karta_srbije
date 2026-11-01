@@ -563,6 +563,12 @@
    * ------------------------------------------------------------------ */
   // Zoom steps for the detail layers: 0 (< 7.5), 1 (< 8.5), 2 (< 9.5), 3 (< 10.5), 4 (< 11.5), 5
   const zb = () => { const z = map.getZoom(); return z < 7.5 ? 0 : z < 8.5 ? 1 : z < 9.5 ? 2 : z < 10.5 ? 3 : z < 11.5 ? 4 : 5; };
+  // With only one or two layers switched on there is room for all of their names, so they show at every zoom
+  // (zd = the zoom step used for those layers; the label decluttering still keeps names from overlapping)
+  const DETAIL_TOGGLES = ['showLakes', 'showReservoirs', 'showMountains', 'showRivers', 'showVolcanic', 'showBasins', 'showGorges',
+    'showCities', 'showSpas', 'showCaves', 'showParks'];
+  const focused = () => DETAIL_TOGGLES.filter((id) => val(id)).length <= 2;
+  const zd = (cap = 5) => (focused() ? Math.max(zb(), cap) : zb());
   // Shortest river (km) drawn / named, smallest lake (km²) named, lowest mountain named, least isolated peak (km) — per zoom step
   const RIVER_MIN = [40, 15, 5, 0, 0, 0], RIVER_LABEL_MIN = [150, 50, 20, 8, 3, 0];
   const LAKE_LABEL_MIN = [5, 1.5, 0.4, 0.15, 0, 0], RANGE_MIN = [1000, 700, 0, 0, 0, 0], PEAK_ISO = [Infinity, 15, 8, 4, 1.5, 0];
@@ -619,7 +625,7 @@
   const rangeOrder = (F ? F.ranges : []).slice().sort((a, b) => rangeRank(a) - rangeRank(b));
 
   function renderFeatures() {
-    const z = zb();
+    const z = zd();
     if (labelLang !== lang) {
       labelLang = lang; labelCache = new Map();
       [riverLabels, lakeLabels, rangeLabels, basinLabels, gorgeLabels].forEach((g) => g.clearLayers());
@@ -715,22 +721,22 @@
     mountains: {
       list: mountains,
       sig: () => `${lang}|${val('showElev')}|${val('peakSystems')}`,
-      filter: (m) => m.elev >= val('minElev') && (!m.osm || (m.iso >= PEAK_ISO[zb()] && inView(m))),
+      filter: (m) => m.elev >= val('minElev') && (!m.osm || (m.iso >= PEAK_ISO[zd(3)] && inView(m))),
       make: makePeak
     },
     cities: {
       list: cities,
-      sig: () => `${lang}|${zb()}`,
-      filter: (c) => (c.pop === 0 || c.pop >= val('minPop')) && (!c.osm || ((zb() >= 1 || c.pop >= 15000) && inView(c))),
+      sig: () => `${lang}|${zd()}`,
+      filter: (c) => (c.pop === 0 || c.pop >= val('minPop')) && (!c.osm || ((zd() >= 1 || c.pop >= 15000) && inView(c))),
       make: makeCity
     },
     parks: simpleSpec(parks, (o) => o.kind, (o) => [o.note]),
     spas: {
       list: spas,
-      sig: () => `${lang}|${zb() >= 2}`,
+      sig: () => `${lang}|${zd() >= 2}`,
       filter: () => true,
       make: (o) => dot(o, 5).bindPopup(popup(tr(o.name), tr('Spa town'), [tr('Thermal / mineral springs')]))
-        .bindTooltip(tr(o.name), { permanent: zb() >= 2, direction: 'right', offset: [5, 0], className: 'spa-label' })
+        .bindTooltip(tr(o.name), { permanent: zd() >= 2, direction: 'right', offset: [5, 0], className: 'spa-label' })
     },
     volcanic: {
       list: volcanic,
@@ -743,12 +749,12 @@
     },
     caves: {
       list: caves,
-      sig: () => `${lang}|${zb() >= 1}`,
-      filter: (c) => c.famous || (zb() >= 2 && inView(c)),
+      sig: () => `${lang}|${zd()}`,
+      filter: (c) => c.famous || (zd() >= 2 && inView(c)),
       make: (o) => L.marker([o.lat, o.lng], {
         icon: L.divIcon({ className: 'cave-icon' + (o.famous ? ' famous' : ''), html: '<i></i>', iconSize: [14, 10], iconAnchor: [7, 8] })
       }).bindPopup(popup(tr(o.name), tr('Cave'), [o.famous && tr('Show-cave (open to visitors)'), `${latStr(o.lat, 3)}, ${lngStr(o.lng, 3)}`]))
-        .bindTooltip(`<span data-p="${o.famous ? 0 : 1}">${tr(o.name)}</span>`, { permanent: o.famous && zb() >= 1, direction: 'right', offset: [6, -2], className: 'cave-label' })
+        .bindTooltip(`<span data-p="${o.famous ? 0 : 1}">${tr(o.name)}</span>`, { permanent: zd() >= 1 && (o.famous || focused()), direction: 'right', offset: [6, -2], className: 'cave-label' })
     },
     heritage: simpleSpec(heritage, (o) => o.kind, (o) => [o.note]),
     ski: simpleSpec(ski, () => 'Ski resort', () => []),
@@ -817,7 +823,7 @@
   function makeCity(c) {
     const r = c.capital ? 8 : Math.max(3, Math.sqrt(c.pop) / 90);
     // big cities always named, smaller towns as you zoom in
-    const z = zb();
+    const z = zd();
     const showLabel = c.capital || c.pop >= 90000 || (z >= 1 && c.pop >= 25000) || (z >= 2 && c.pop >= 8000) || z >= 3;
     const popText = !c.pop ? tr('n/a in Serbian 2022 census')
       : `<b>${fmt(c.pop)}</b> <small>${tr(c.osm ? '(approx.)' : '(2022 census)')}</small>`;
@@ -940,8 +946,12 @@
       const box = map.getContainer(), view = box.getBoundingClientRect();
       const seen = new Set();
       const collect = (sel) => [...box.querySelectorAll(sel)].filter((el) => !seen.has(el) && seen.add(el));
-      const fixed = ALWAYS_SHOWN.flatMap(collect);
-      const ranked = LABEL_PRIORITY.flatMap((sel) => collect(sel).map((el) => ({ el, p: prio(el) })).sort((a, b) => a.p - b.p));
+      // with only one or two layers on, their names come first: region and big-city names give way to them
+      const focus = focused();
+      const always = focus ? ['.peak-label.top', '.country-label span'] : ALWAYS_SHOWN;
+      const order = focus ? [...LABEL_PRIORITY, '.city-label.capital', '.city-label.big', '.area-label span'] : LABEL_PRIORITY;
+      const fixed = always.flatMap(collect);
+      const ranked = order.flatMap((sel) => collect(sel).map((el) => ({ el, p: prio(el) })).sort((a, b) => a.p - b.p));
       // read all positions first, then hide (one layout pass)
       const rect = (el) => { const r = el.getBoundingClientRect(); return { l: r.left - 2, r: r.right + 2, t: r.top - 1, b: r.bottom + 1 }; };
       const onScreen = (r) => r.r > view.left && r.l < view.right && r.b > view.top && r.t < view.bottom && r.r - r.l > 4;
@@ -1037,6 +1047,8 @@
   inputs.forEach((el) => el.addEventListener(el.type === 'range' || el.type === 'color' ? 'input' : 'change', () => {
     exclusiveDivision(el.id);
     schedule(TASKS_FOR[el.id] || ['all']);
+    // switching layers on or off can change how many names the others may show
+    if (DETAIL_TOGGLES.includes(el.id)) schedule(['features', 'points']);
     saveSoon();
   }));
 
