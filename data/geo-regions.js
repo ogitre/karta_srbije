@@ -177,7 +177,7 @@ window.GEO_VALLEYS = [
       { id: 'bujanovacka', name: ['Bujanovac basin', 'Bujanovačka kotlina'], until: [21.85, 42.52], dmax: 9, rise: 120 },
       { id: 'vranjska', name: ['Vranje basin', 'Vranjska kotlina'], until: [22.064, 42.707], dmax: 10, rise: 150 },
       { id: 'grdelicka', name: ['Grdelica gorge', 'Grdelička klisura'], until: [22.068, 42.896], dmax: 2.5, rise: 300 },
-      { id: 'leskovacka', until: [21.90, 43.07], dmax: 16, rise: 140 },
+      { id: 'leskovacka', name: ['Leskovac basin', 'Leskovačka kotlina'], until: [21.90, 43.07], dmax: 16, rise: 140 },
       { id: 'pecenjevacko', name: ['Pečenjevce narrows', 'Pečenjevačko suženje'], until: [21.87, 43.12], dmax: 4, rise: 100 },
       { id: 'niska', name: ['Niš basin', 'Niška kotlina'], until: [21.80, 43.43], dmax: 14, rise: 140 },
       { id: 'mezgrajsko', name: ['Mezgraja narrows', 'Mezgrajsko suženje'], until: [21.75, 43.48], dmax: 4, rise: 100 },

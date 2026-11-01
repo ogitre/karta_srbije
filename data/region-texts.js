@@ -53,11 +53,11 @@ window.REGION_TEXTS = [
     map: { region: 'velikoPomoravlje' },
     name: ['Great Morava valley', 'Veliko Pomoravlje'],
     list: [
-      ['Stalać gorge – the Great Morava forms', 'Stalaćka klisura – nastaje Velika Morava'],
-      ['Upper Great Morava basin (Jagodina–Paraćin)', 'Gornjovelikomoravska kotlina (Jagodinsko-paraćinska)'],
+      ['Stalać gorge', 'Stalaćka klisura'],
+      ['Upper Great Morava basin', 'Gornjovelikomoravska kotlina'],
       ['Bagrdan gorge', 'Bagrdanska klisura'],
-      ['Lower Great Morava basin (Požarevac)', 'Donjovelikomoravska kotlina (Požarevačka)'],
-      ['Near Kovin it flows into the Danube', 'Kod Kovina utiče (uliva se) u Dunav']
+      ['Lower Great Morava basin', 'Donjovelikomoravska kotlina'],
+      ['Near Kovin it flows into the Danube', 'Kod Kovina uliva se u Dunav']
     ]
   },
   {
@@ -67,6 +67,7 @@ window.REGION_TEXTS = [
       ['Forms from the Preševska and Binačka Moravica in the Bujanovac basin', 'Nastaje od Preševske i Binačke Moravice u Bujanovačkoj kotlini'],
       ['Vranje basin', 'Vranjska kotlina'],
       ['Grdelica gorge', 'Grdelička klisura'],
+      ['Leskovac basin', 'Leskovačka kotlina'],
       ['Pečenjevce narrows', 'Pečenjevačko suženje'],
       ['Niš basin', 'Niška kotlina'],
       ['Mezgraja narrows', 'Mezgrajsko suženje'],
