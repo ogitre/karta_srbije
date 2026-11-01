@@ -362,6 +362,9 @@ details:not([open]) summary::after { transform: rotate(-90deg); }
 .feature-label.lake span { color: #155a96; font-style: italic; font-weight: 600; }
 .feature-label.range span { color: #5a3a17; font-weight: 700; font-size: 10px; text-transform: uppercase; letter-spacing: 1.5px; opacity: .9; }
 .feature-label.basin span { color: #6b4a1f; font-style: italic; font-weight: 500; }
+/* only one or two layers on: names are set on two lines and tighter so that more of them fit */
+.focus .feature-label:is(.basin, .gorge, .lake, .range) span { white-space: normal; width: min-content; text-align: center; line-height: 1.05; }
+.focus .feature-label.range span { letter-spacing: .6px; }
 [data-theme="dark"] .feature-label span { text-shadow: 0 0 3px #000, 0 0 3px #000, 0 0 5px #000; }
 [data-theme="dark"] .feature-label.river span, [data-theme="dark"] .feature-label.lake span { color: #8cc4ff; }
 [data-theme="dark"] .feature-label.range span { color: #e9cfa6; }
@@ -374,15 +377,17 @@ details:not([open]) summary::after { transform: rotate(-90deg); }
   border-radius: 6px 6px 0 0; box-shadow: 0 0 0 1.5px #fff;
 }
 .cave-icon.famous i { width: 13px; height: 9px; margin-top: 0; background: #4a2e14; }
-.cave-label, .spa-label {
+.cave-label, .spa-label, .park-label {
   background: none; border: none; box-shadow: none; padding: 0; font-size: 10.5px; font-weight: 600;
   text-shadow: 0 0 3px #fff, 0 0 3px #fff, 0 0 3px #fff;
 }
 .cave-label { color: #4a2e14; }
 .spa-label { color: #0f6f7f; }
-.cave-label::before, .spa-label::before { display: none; }
-[data-theme="dark"] .cave-label, [data-theme="dark"] .spa-label { text-shadow: 0 0 3px #000, 0 0 3px #000, 0 0 5px #000; }
+.park-label { color: #1f6b43; }
+.cave-label::before, .spa-label::before, .park-label::before { display: none; }
+[data-theme="dark"] .cave-label, [data-theme="dark"] .spa-label, [data-theme="dark"] .park-label { text-shadow: 0 0 3px #000, 0 0 3px #000, 0 0 5px #000; }
 [data-theme="dark"] .cave-label { color: #e9cfa6; }
+[data-theme="dark"] .park-label { color: #8fd6a8; }
 [data-theme="dark"] .spa-label { color: #8fe3ef; }
 .sw.dot.cave { background: #6b4a2b; border-radius: 6px 6px 0 0; height: 10px; }
 .sw.txt { width: auto; height: auto; font-size: 10px; font-weight: 700; line-height: 1; }

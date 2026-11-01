@@ -247,7 +247,7 @@
       showOutline: false, showAreaLabels: true,
       fillOn: true, colorBy: 'region', palette: 'classic', singleColor: '#c6363c', fillOpacity: '0.35',
       borderColor: '#3b3b3b', borderWidth: '0',
-      showLakes: true, showReservoirs: true, showMountains: true, showRivers: true, showVolcanic: true,
+      showLakes: true, showReservoirs: true, showMountains: true, showPeaks: true, showRivers: true, showVolcanic: true,
       showBasins: true, showGorges: true, showCaves: true, showParks: true,
       showCities: true, minPop: '0', showSpas: true,
       showGrid: true, showCoords: true, showScale: true, darkUI: true
@@ -565,7 +565,7 @@
   const zb = () => { const z = map.getZoom(); return z < 7.5 ? 0 : z < 8.5 ? 1 : z < 9.5 ? 2 : z < 10.5 ? 3 : z < 11.5 ? 4 : 5; };
   // With only one or two layers switched on there is room for all of their names, so they show at every zoom
   // (zd = the zoom step used for those layers; the label decluttering still keeps names from overlapping)
-  const DETAIL_TOGGLES = ['showLakes', 'showReservoirs', 'showMountains', 'showRivers', 'showVolcanic', 'showBasins', 'showGorges',
+  const DETAIL_TOGGLES = ['showLakes', 'showReservoirs', 'showMountains', 'showPeaks', 'showRivers', 'showVolcanic', 'showBasins', 'showGorges',
     'showCities', 'showSpas', 'showCaves', 'showParks'];
   const focused = () => DETAIL_TOGGLES.filter((id) => val(id)).length <= 2;
   const zd = (cap = 5) => (focused() ? Math.max(zb(), cap) : zb());
@@ -694,7 +694,7 @@
   }
 
   // Which checkbox shows each point group
-  const POINT_GROUPS = { mountains: 'showMountains', cities: 'showCities', parks: 'showParks', spas: 'showSpas',
+  const POINT_GROUPS = { mountains: 'showPeaks', cities: 'showCities', parks: 'showParks', spas: 'showSpas',
     heritage: 'showHeritage', ski: 'showSki', lakes: 'showLakes', caves: 'showCaves', volcanic: 'showVolcanic' };
 
   // Remove from the map first (closes permanent tooltips), then drop tooltip/popup bindings
@@ -730,7 +730,14 @@
       filter: (c) => (c.pop === 0 || c.pop >= val('minPop')) && (!c.osm || ((zd() >= 1 || c.pop >= 15000) && inView(c))),
       make: makeCity
     },
-    parks: simpleSpec(parks, (o) => o.kind, (o) => [o.note]),
+    parks: {
+      ...simpleSpec(parks, (o) => o.kind, (o) => [o.note]),
+      sig: () => `${lang}|${focused()}`,
+      // named on the map when they are one of the only layers on
+      make: (o) => dot(o).bindPopup(popup(tr(o.name), tr(o.kind), [tr(o.note)]))
+        .bindTooltip(tr(o.name), focused() ? { permanent: true, direction: 'right', offset: [6, 0], className: 'park-label' }
+          : { direction: 'top', offset: [0, -6] })
+    },
     spas: {
       list: spas,
       sig: () => `${lang}|${zd() >= 2}`,
@@ -889,7 +896,7 @@
     showKosovo: ['areas', 'points'], showAreaLabels: ['labels'],
     fillOn: ['style'], colorBy: ['style', 'ui'], palette: ['style'], singleColor: ['style'],
     fillOpacity: ['style'], borderColor: ['style'], borderWidth: ['style'],
-    showMountains: ['p:mountains', 'features'], showRivers: ['features'], showLakes: ['features', 'p:lakes'], showReservoirs: ['features'],
+    showMountains: ['features'], showPeaks: ['p:mountains'], showRivers: ['features'], showLakes: ['features', 'p:lakes'], showReservoirs: ['features'],
     showVolcanic: ['p:volcanic'], showBasins: ['features'], showGorges: ['features'], showCaves: ['p:caves'], showParks: ['p:parks'],
     showCities: ['p:cities'], minPop: ['p:cities', 'ui'], showSpas: ['p:spas'], showHeritage: ['p:heritage'], showSki: ['p:ski'],
     showGrid: ['grid'], showCoords: ['ui'], showScale: ['ui'], darkUI: ['ui', 'style']
@@ -920,7 +927,8 @@
     }
     if (has('grid')) { renderGrid(); toggle(gridLayer, val('showGrid')); }
     if (stackDirty || has('areas') || has('grid') || has('landmarks')) { restack(); stackDirty = false; }
-    declutter();
+    // a second pass once newly added names have their final place
+    declutter(); clearTimeout(declutterLater); declutterLater = setTimeout(declutter, 200);
   }
 
   // Draw order on the shared canvas, bottom to top (re-applied after layers are rebuilt)
@@ -937,9 +945,9 @@
   const ALWAYS_SHOWN = ['.peak-label.top', '.city-label.capital', '.city-label.big', '.area-label span', '.country-label span'];
   const LABEL_PRIORITY = ['.city-label', '.landmark-label span', '.volcano-label', '.feature-label.range span',
     '.peak-label:not(.minor)', '.feature-label.river span', '.feature-label.lake span', '.feature-label.basin span', '.feature-label.gorge span',
-    '.cave-label', '.spa-label', '.peak-label.minor'];
+    '.cave-label', '.spa-label', '.park-label', '.peak-label.minor'];
   const prio = (el) => { const p = el.dataset.p ?? el.querySelector('[data-p]')?.dataset.p; return p == null ? 0 : +p; };
-  let declutterFrame = 0;
+  let declutterFrame = 0, declutterLater = 0;
   function declutter() {
     cancelAnimationFrame(declutterFrame);
     declutterFrame = requestAnimationFrame(() => {
@@ -948,8 +956,10 @@
       const collect = (sel) => [...box.querySelectorAll(sel)].filter((el) => !seen.has(el) && seen.add(el));
       // with only one or two layers on, their names come first: region and big-city names give way to them
       const focus = focused();
+      box.classList.toggle('focus', focus);
       const always = focus ? ['.peak-label.top', '.country-label span'] : ALWAYS_SHOWN;
-      const order = focus ? [...LABEL_PRIORITY, '.city-label.capital', '.city-label.big', '.area-label span'] : LABEL_PRIORITY;
+      const order = focus ? [...LABEL_PRIORITY.filter((s) => !s.startsWith('.landmark')), '.city-label.capital', '.city-label.big',
+        '.landmark-label span', '.area-label span'] : LABEL_PRIORITY;
       const fixed = always.flatMap(collect);
       const ranked = order.flatMap((sel) => collect(sel).map((el) => ({ el, p: prio(el) })).sort((a, b) => a.p - b.p));
       // read all positions first, then hide (one layout pass)
@@ -1066,7 +1076,7 @@
   map.on('moveend', () => { if (zb() >= 2) schedule(['p:mountains', 'p:cities', 'p:caves', 'features']); });
 
   $('resetView').onclick = () => map.flyTo(HOME.center, HOME.zoom);
-  const LAYER_TOGGLES = ['showRegions', 'showDistricts', 'showOutline', 'showAreaLabels', 'showMountains', 'showRivers',
+  const LAYER_TOGGLES = ['showRegions', 'showDistricts', 'showOutline', 'showAreaLabels', 'showMountains', 'showPeaks', 'showRivers',
     'showLakes', 'showReservoirs', 'showVolcanic', 'showBasins', 'showGorges', 'showCaves', 'showParks', 'showCities', 'showSpas',
     'hillshade', 'fillOn'];
   $('allOn').onclick = () => {
@@ -1084,7 +1094,7 @@
   const norm = (s) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'dj');
   const searchItems = [
     ...cities.map((o) => ({ o, label: () => tr('City'), toggle: 'showCities' })),
-    ...mountains.map((o) => ({ o, label: () => `${tr('Peak')} · ${o.elev} m`, toggle: 'showMountains' })),
+    ...mountains.map((o) => ({ o, label: () => `${tr('Peak')} · ${o.elev} m`, toggle: 'showPeaks' })),
     ...parks.map((o) => ({ o, label: () => tr(o.kind), toggle: 'showParks' })),
     ...spas.map((o) => ({ o, label: () => tr('Spa'), toggle: 'showSpas' })),
     ...lakePoints.map((o) => ({ o, label: () => tr('Lake'), toggle: 'showLakes' })),

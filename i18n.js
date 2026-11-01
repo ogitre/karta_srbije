@@ -76,6 +76,7 @@ window.SR = {
   'Artificial lake (reservoir)': 'Veštačko jezero (akumulacija)',
   'Natural lake': 'Prirodno jezero',
   'Mountains': 'Planine',
+  'Peaks': 'Vrhovi',
   'Volcanic relief of Serbia': 'Vulkanski reljef Srbije',
   'Volcanic relief': 'Vulkanski reljef',
   'Basins': 'Kotline',
